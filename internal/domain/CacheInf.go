@@ -5,4 +5,5 @@ type Cache interface {
 	Put(k Key, val Key)
 	Get(K Key) Key
 	EvictKey()
+	PrintLevelCacheData()
 }

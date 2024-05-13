@@ -2,9 +2,9 @@ package factory
 
 import (
 	Cache "cache/internal/domain"
+	LFUCache "cache/internal/domain/LFUCache"
 	LRUCache "cache/internal/domain/LRUCache"
 	"errors"
-	"log"
 )
 
 var errInvalidSize = errors.New("Invalid size")
@@ -20,7 +20,7 @@ func CreateCache(cacheType string, capacity int) (Cache.Cache, error) {
 	case "LRU":
 		return LRUCache.NewCache(capacity), nil
 	case "LFU":
-		log.Fatal("Implementation missing !! Please provide implementation details")
+		return LFUCache.NewCache(capacity), nil
 	default:
 		return nil, errInvalidCacheType
 	}

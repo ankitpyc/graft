@@ -75,6 +75,10 @@ func (cache LRUCache) GetAllCacheData() {
 	}
 }
 
+func (cache LRUCache) PrintLevelCacheData() {
+
+}
+
 func (cache LRUCache) EvictKey() {
 	headNode := cache.List.Head
 	fmt.Print("evicting key ", headNode.Key)
