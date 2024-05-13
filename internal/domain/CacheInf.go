@@ -1,7 +1,8 @@
 package domain
 
-type CacheInf interface {
+type Cache interface {
+	GetAllCacheData()
 	Put(k Key, val Key)
 	Get(K Key) Key
-	evictKey()
+	EvictKey()
 }

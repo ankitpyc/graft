@@ -1,31 +1,34 @@
 package domain
 
-import "fmt"
+import (
+	"cache/internal/domain"
+	"fmt"
+)
 
-type Cache struct {
-	CacheMap map[Key]*ListNode
-	List     *DoubleLinkedList
+type LRUCache struct {
+	CacheMap map[domain.Key]*domain.ListNode
+	List     *domain.DoubleLinkedList
 	capacity int
 }
 
-func NewCache(capacity int) Cache {
-	return Cache{
-		CacheMap: make(map[Key]*ListNode),
+func NewCache(capacity int) LRUCache {
+	return LRUCache{
+		CacheMap: make(map[domain.Key]*domain.ListNode),
 		capacity: capacity,
-		List: &DoubleLinkedList{
+		List: &domain.DoubleLinkedList{
 			Head: nil,
 			Tail: nil,
 		},
 	}
 }
 
-func (cache *Cache) Put(k Key, val Key) {
+func (cache LRUCache) Put(k domain.Key, val domain.Key) {
 	fmt.Printf("Cache size %d cache Capacity %d", len(cache.CacheMap), cache.capacity)
 	fmt.Println()
 	if len(cache.CacheMap) == cache.capacity {
-		cache.evictKey()
+		cache.EvictKey()
 	}
-	node := &ListNode{
+	node := &domain.ListNode{
 		Val:  val,
 		Key:  k,
 		Prev: nil,
@@ -42,7 +45,7 @@ func (cache *Cache) Put(k Key, val Key) {
 	cache.List.Tail = node
 }
 
-func (cache *Cache) Get(k Key) Key {
+func (cache LRUCache) Get(k domain.Key) domain.Key {
 	node, ok := cache.CacheMap[k]
 	if !ok {
 		return nil
@@ -66,7 +69,13 @@ func (cache *Cache) Get(k Key) Key {
 	return node.Val
 }
 
-func (cache *Cache) evictKey() {
+func (cache LRUCache) GetAllCacheData() {
+	for key, val := range cache.CacheMap {
+		fmt.Println(key, " , ", val.Val)
+	}
+}
+
+func (cache LRUCache) EvictKey() {
 	headNode := cache.List.Head
 	fmt.Print("evicting key ", headNode.Key)
 	fmt.Println()

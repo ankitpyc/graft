@@ -1,0 +1,28 @@
+package factory
+
+import (
+	Cache "cache/internal/domain"
+	LRUCache "cache/internal/domain/LRUCache"
+	"errors"
+	"log"
+)
+
+var errInvalidSize = errors.New("Invalid size")
+var errInvalidCacheType = errors.New("Invalid cache Type")
+
+type CacheFactory struct {
+	CacheType string
+	capacity  int
+}
+
+func CreateCache(cacheType string, capacity int) (Cache.Cache, error) {
+	switch cacheType {
+	case "LRU":
+		return LRUCache.NewCache(capacity), nil
+	case "LFU":
+		log.Fatal("Implementation missing !! Please provide implementation details")
+	default:
+		return nil, errInvalidCacheType
+	}
+	return nil, errInvalidSize
+}
