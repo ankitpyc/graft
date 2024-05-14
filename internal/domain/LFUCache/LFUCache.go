@@ -29,7 +29,6 @@ func (cache *LFUCache) Put(k domain.Key, val domain.Key) {
 	}
 	cache.minLevel = 1
 	cache.CacheMap[k] = cache.createNode(k, val)
-	cache.PrintLevelCacheData()
 }
 
 func (cache *LFUCache) Get(K domain.Key) domain.Key {
@@ -42,29 +41,25 @@ func (cache *LFUCache) Get(K domain.Key) domain.Key {
 }
 
 func (cache *LFUCache) GetAllCacheData() {
-	fmt.Printf("Printing All Cache Data\n")
+	fmt.Printf("Printing All Cache Keys and Value pairs\n")
 	for key, val := range cache.CacheMap {
 		fmt.Println(key, " , ", val.Freq)
 	}
+	cache.PrintFreqWiseCachedData()
 }
 
-func (cache *LFUCache) PrintLevelCacheData() {
-	fmt.Println("-------------------- Printing Level Data -----------------------------")
-	fmt.Println()
+func (cache *LFUCache) PrintFreqWiseCachedData() {
+	fmt.Println("-------------------- Printing Freq Wise Data -----------------------------")
 	fmt.Println()
 	for level, nodeList := range cache.FreqMap {
 		temp := nodeList
-		fmt.Printf("-------------------- level %d -----------------------------", level)
-		fmt.Println()
-		fmt.Println()
+		fmt.Printf("-------------------- Freq %d -----------------------------", level)
 		for temp != nil {
 			fmt.Print(" ", temp.Key)
 			temp = temp.Next
 		}
 		fmt.Println()
-		fmt.Printf("-------------------- level %d Finished  ---------------------", level)
-		fmt.Println()
-		fmt.Println()
+		fmt.Printf("-------------------- Freq %d Finished  ---------------------", level)
 	}
 }
 
@@ -89,6 +84,7 @@ func (cache *LFUCache) updateNode(cacheNode *domain.FreqListNode) *domain.FreqLi
 	removedNode := removeNodeFromList(cache, cacheNode)
 	if removedNode == nil {
 		delete(cache.FreqMap, cacheNode.Freq)
+		cache.minLevel = cache.minLevel + 1
 	}
 	nextFreqNode, ok := cache.FreqMap[cacheNode.Freq+1]
 	cacheNode.Freq = cacheNode.Freq + 1
@@ -101,7 +97,7 @@ func (cache *LFUCache) updateNode(cacheNode *domain.FreqListNode) *domain.FreqLi
 	}
 	fmt.Println("update details for node", cacheNode)
 	cache.FreqMap[cacheNode.Freq] = cacheNode
-	cache.PrintLevelCacheData()
+	cache.PrintFreqWiseCachedData()
 	return cacheNode
 }
 

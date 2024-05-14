@@ -1,4 +1,4 @@
-package domain
+package cache
 
 import (
 	"cache/internal/domain"
@@ -82,7 +82,6 @@ func (cache LRUCache) PrintLevelCacheData() {
 func (cache LRUCache) EvictKey() {
 	headNode := cache.List.Head
 	fmt.Print("evicting key ", headNode.Key)
-	fmt.Println()
 	delete(cache.CacheMap, headNode.Key)
 	if cache.List.Head.Next != nil {
 		cache.List.Head.Next.Prev = nil

@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	var cache, err = cacheFactory.CreateCache("LFU", 4)
+	var cache, err = cacheFactory.CreateCache("LFU", 5)
 	if err != nil {
 		log.Fatal("Invalid Cache type")
 	}
@@ -20,8 +20,8 @@ func main() {
 	cache.Put(9, 9)
 	cache.Get(9)
 	cache.Put("ankit", "data1")
-	cache.Put("monica", "data2")
-	cache.Put("monisha", "data3")
-	cache.PrintLevelCacheData()
+	cache.Get("ankit")
+	cache.Get("ankit")
+	cache.GetAllCacheData()
 
 }
