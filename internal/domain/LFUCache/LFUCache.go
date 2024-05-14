@@ -4,6 +4,7 @@ import (
 	"cache/internal/domain"
 	"errors"
 	"fmt"
+	"sync"
 )
 
 type LFUCache struct {
@@ -11,6 +12,7 @@ type LFUCache struct {
 	FreqMap  map[int]*domain.FreqListNode
 	minLevel int
 	capacity int
+	lock     sync.RWMutex
 }
 
 func NewCache(capacity int) domain.Cache {
@@ -19,19 +21,24 @@ func NewCache(capacity int) domain.Cache {
 		FreqMap:  make(map[int]*domain.FreqListNode),
 		minLevel: 0,
 		capacity: capacity,
+		lock:     sync.RWMutex{},
 	}
 }
 
 func (cache *LFUCache) Put(k domain.Key, val domain.Key) {
+	cache.lock.Lock()
 	fmt.Print("adding cache entry ", k)
 	if len(cache.CacheMap) == cache.capacity {
 		cache.EvictKey()
 	}
 	cache.minLevel = 1
 	cache.CacheMap[k] = cache.createNode(k, val)
+	cache.lock.Unlock()
 }
 
 func (cache *LFUCache) Get(K domain.Key) domain.Key {
+	cache.lock.RLock()
+	defer cache.lock.RUnlock()
 	currNode, ok := cache.CacheMap[K]
 	if !ok {
 		return errors.New("keys doent exsists")

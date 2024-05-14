@@ -43,6 +43,7 @@ func (cache LRUCache) Put(k domain.Key, val domain.Key) {
 	node.Prev = cache.List.Tail
 	cache.List.Tail.Next = node
 	cache.List.Tail = node
+
 }
 
 func (cache LRUCache) Get(k domain.Key) domain.Key {
