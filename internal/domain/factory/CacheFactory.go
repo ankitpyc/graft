@@ -4,11 +4,8 @@ import (
 	Cache "cache/internal/domain"
 	LFUCache "cache/internal/domain/LFUCache"
 	LRUCache "cache/internal/domain/LRUCache"
-	"errors"
+	err "cache/internal/domain/errors"
 )
-
-var errInvalidSize = errors.New("Invalid size")
-var errInvalidCacheType = errors.New("Invalid cache Type")
 
 type CacheFactory struct {
 	CacheType string
@@ -22,8 +19,8 @@ func CreateCache(cacheType string, capacity int) (Cache.Cache, error) {
 	case "LFU":
 		return LFUCache.NewCache(capacity), nil
 	case "TTL":
-		return nil, errInvalidCacheType
+		return nil, err.ErrInvalidCacheType
 	default:
-		return nil, errInvalidCacheType
+		return nil, err.ErrInvalidCacheType
 	}
 }

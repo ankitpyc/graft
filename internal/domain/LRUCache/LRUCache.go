@@ -22,7 +22,8 @@ func NewCache(capacity int) LRUCache {
 	}
 }
 
-func (cache LRUCache) Put(k domain.Key, val domain.Key) {
+func (cache *LRUCache) Put(k domain.Key, val domain.Key) {
+
 	fmt.Printf("Cache size %d cache Capacity %d", len(cache.CacheMap), cache.capacity)
 	fmt.Println()
 	if len(cache.CacheMap) == cache.capacity {
@@ -46,7 +47,7 @@ func (cache LRUCache) Put(k domain.Key, val domain.Key) {
 
 }
 
-func (cache LRUCache) Get(k domain.Key) domain.Key {
+func (cache *LRUCache) Get(k domain.Key) domain.Key {
 	node, ok := cache.CacheMap[k]
 	if !ok {
 		return nil
@@ -70,17 +71,17 @@ func (cache LRUCache) Get(k domain.Key) domain.Key {
 	return node.Val
 }
 
-func (cache LRUCache) GetAllCacheData() {
+func (cache *LRUCache) GetAllCacheData() {
 	for key, val := range cache.CacheMap {
 		fmt.Println(key, " , ", val.Val)
 	}
 }
 
-func (cache LRUCache) PrintLevelCacheData() {
+func (cache *LRUCache) PrintLevelCacheData() {
 
 }
 
-func (cache LRUCache) EvictKey() {
+func (cache *LRUCache) EvictKey() {
 	headNode := cache.List.Head
 	fmt.Print("evicting key ", headNode.Key)
 	delete(cache.CacheMap, headNode.Key)
