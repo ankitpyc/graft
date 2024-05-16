@@ -25,8 +25,8 @@ func (cache *TTLCache) EvictKey() {
 	panic("implement me")
 }
 
-// NewTTLCache creates a new instance of TTLCache with the specified capacity, TTL expiry duration, and cleaning interval.
-func NewTTLCache(capacity int, interval time.Duration, ttl time.Duration) _interface.Cache {
+// NewCache creates a new instance of TTLCache with the specified capacity, TTL expiry duration, and cleaning interval.
+func NewCache(capacity int, interval time.Duration, ttl time.Duration) _interface.Cache {
 	ttlCache := &TTLCache{
 		CacheMap: make(map[domain.Key]*TTLEntry),
 		Capacity: capacity,

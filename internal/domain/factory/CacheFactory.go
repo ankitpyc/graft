@@ -25,7 +25,7 @@ func CreateCache(cacheType string, capacity int) (Cache.Cache, error) {
 	case "LFU":
 		return LFUCache.NewCache(capacity), err
 	case "TTL":
-		return TTLCache.NewTTLCache(capacity, 10*time.Second, 7*time.Second), err
+		return TTLCache.NewCache(capacity, 10*time.Second, 7*time.Second), err
 	default:
 		return nil, errors.ErrInvalidCacheType
 	}
