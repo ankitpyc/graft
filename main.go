@@ -2,21 +2,25 @@ package main
 
 import (
 	cacheFactory "cache/internal/domain/factory"
+	"fmt"
 	"log"
+	"time"
 )
 
 func main() {
-	var cache, err = cacheFactory.CreateCache("LFU", 5)
+	var cache, err = cacheFactory.CreateCache("TTL", 5)
 	if err != nil {
 		log.Fatal("Invalid Cache type")
 	}
-	go cache.Put(2, "TWO")
-	go cache.Put(5, "ankit")
-	go cache.Put("hello", "mishra")
+	cache.Put(2, "TWO")
+	cache.Put(5, "ankit")
+	cache.Put("hello", "mishra")
 	cache.Put(7, "snkit")
+	time.Sleep(12 * time.Second)
+	fmt.Println("Thread woke up")
 	cache.Get(7)
-	go cache.Get(5)
-	go cache.Get(2)
+	cache.Get(5)
+	cache.Get(2)
 	cache.Put(9, 9)
 	cache.Get(9)
 	cache.Put("ankit", "data1")

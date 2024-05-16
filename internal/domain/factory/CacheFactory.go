@@ -1,10 +1,12 @@
 package factory
 
 import (
-	Cache "cache/internal/domain"
 	LFUCache "cache/internal/domain/LFUCache"
 	LRUCache "cache/internal/domain/LRUCache"
+	TTLCache "cache/internal/domain/TTLCache"
 	err "cache/internal/domain/errors"
+	Cache "cache/internal/domain/interface"
+	"time"
 )
 
 type CacheFactory struct {
@@ -19,7 +21,7 @@ func CreateCache(cacheType string, capacity int) (Cache.Cache, error) {
 	case "LFU":
 		return LFUCache.NewCache(capacity), nil
 	case "TTL":
-		return nil, err.ErrInvalidCacheType
+		return TTLCache.NewTTLCache(capacity, 10*time.Second, 7*time.Second), nil
 	default:
 		return nil, err.ErrInvalidCacheType
 	}

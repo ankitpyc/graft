@@ -2,6 +2,7 @@ package cache
 
 import (
 	"cache/internal/domain"
+	"cache/internal/domain/interface"
 	"errors"
 	"fmt"
 	"sync"
@@ -15,7 +16,7 @@ type LFUCache struct {
 	lock     sync.RWMutex
 }
 
-func NewCache(capacity int) domain.Cache {
+func NewCache(capacity int) _interface.Cache {
 	return &LFUCache{
 		CacheMap: make(map[domain.Key]*domain.FreqListNode),
 		FreqMap:  make(map[int]*domain.FreqListNode),

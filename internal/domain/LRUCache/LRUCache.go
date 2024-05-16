@@ -11,8 +11,8 @@ type LRUCache struct {
 	capacity int
 }
 
-func NewCache(capacity int) LRUCache {
-	return LRUCache{
+func NewCache(capacity int) *LRUCache {
+	return &LRUCache{
 		CacheMap: make(map[domain.Key]*domain.ListNode),
 		capacity: capacity,
 		List: &domain.DoubleLinkedList{
