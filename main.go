@@ -27,5 +27,5 @@ func main() {
 	cache.Get("ankit")
 	cache.Get("ankit")
 	cache.GetAllCacheData()
-
+	time.Sleep(1 * time.Hour)
 }
