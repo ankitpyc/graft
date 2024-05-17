@@ -1,7 +1,7 @@
 package main
 
 import (
-	cacheFactory "cache/internal/domain/factory"
+	cacheFactory "cache/factory"
 	"fmt"
 	"log"
 	"time"
