@@ -11,7 +11,7 @@ import (
 // LFUCache implements a Least Frequently Used (LFU) cache algorithm.
 type LFUCache struct {
 	// CacheMap stores key-value pairs along with their associated frequency nodes.
-	CacheMap map[domain.Key]*domain.FreqListNode
+	Store map[domain.Key]*domain.FreqListNode
 
 	// FreqMap maps frequency levels to their corresponding frequency nodes.
 	FreqMap map[int]*domain.FreqListNode
@@ -29,7 +29,7 @@ type LFUCache struct {
 // NewCache creates a new instance of LFUCache with the specified capacity.
 func NewCache(capacity int) _interface.Cache {
 	return &LFUCache{
-		CacheMap: make(map[domain.Key]*domain.FreqListNode),
+		Store:    make(map[domain.Key]*domain.FreqListNode),
 		FreqMap:  make(map[int]*domain.FreqListNode),
 		minLevel: 0,
 		capacity: capacity,
@@ -46,7 +46,7 @@ func (cache *LFUCache) Put(k domain.Key, val domain.Key) {
 	fmt.Print("Adding cache entry ", k)
 
 	// Evict the least frequently used item if the cache is at full capacity.
-	if len(cache.CacheMap) == cache.capacity {
+	if len(cache.Store) == cache.capacity {
 		cache.EvictKey()
 	}
 
@@ -54,7 +54,7 @@ func (cache *LFUCache) Put(k domain.Key, val domain.Key) {
 	cache.minLevel = 1
 
 	// Create a new frequency node for the key-value pair and insert it into the cache.
-	cache.CacheMap[k] = cache.createNode(k, val)
+	cache.Store[k] = cache.createNode(k, val)
 }
 
 // Get retrieves the value associated with the given key from the cache.
@@ -63,7 +63,7 @@ func (cache *LFUCache) Get(K domain.Key) domain.Key {
 	cache.lock.RLock()
 	defer cache.lock.RUnlock()
 
-	currNode, ok := cache.CacheMap[K]
+	currNode, ok := cache.Store[K]
 	if !ok {
 		return errors.New("key doesn't exist")
 	}
@@ -76,7 +76,7 @@ func (cache *LFUCache) Get(K domain.Key) domain.Key {
 // GetAllCacheData prints all keys along with their corresponding frequency levels.
 func (cache *LFUCache) GetAllCacheData() {
 	fmt.Printf("Printing All Cache Keys and Value pairs\n")
-	for key, val := range cache.CacheMap {
+	for key, val := range cache.Store {
 		fmt.Println(key, " , ", val.Freq)
 	}
 	cache.PrintFreqWiseCachedData()
@@ -191,11 +191,15 @@ func (cache *LFUCache) EvictKey() {
 
 	// Remove the least frequently used node from the cache.
 	newNode := removeNodeFromList(cache, minFreqList)
-	delete(cache.CacheMap, minFreqList.Key)
+	delete(cache.Store, minFreqList.Key)
 
 	// If the removed node was the only one at its frequency level, update the minimum frequency level.
 	if newNode == nil {
 		delete(cache.FreqMap, cache.minLevel)
 		cache.minLevel++
 	}
+
+}
+func (cache *LFUCache) Delete(key domain.Key) {
+	delete(cache.Store, key)
 }

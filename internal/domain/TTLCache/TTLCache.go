@@ -19,6 +19,11 @@ type TTLCache struct {
 	evicted   chan domain.Key          // evicted is a channel to communicate evicted keys.
 }
 
+func (cache *TTLCache) Delete(k domain.Key) {
+	//TODO implement me
+	delete(cache.CacheMap, k)
+}
+
 // EvictKey is a placeholder function for TTLCache to satisfy the Cache interface.
 // TTLCache uses a TTL cleaner to handle eviction of expired entries.
 func (cache *TTLCache) EvictKey() {

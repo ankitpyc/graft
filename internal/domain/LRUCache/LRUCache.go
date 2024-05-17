@@ -119,3 +119,6 @@ func (cache *LRUCache) EvictKey() {
 	}
 	headNode = nil
 }
+func (cache *LRUCache) Delete(key domain.Key) {
+	delete(cache.Store, key)
+}

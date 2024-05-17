@@ -1,31 +1,52 @@
 package main
 
 import (
-	cacheFactory "cache/factory"
-	"fmt"
+	"cache/config"
+	"cache/server"
 	"log"
-	"time"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
 )
 
 func main() {
-	var cache, err = cacheFactory.CreateCache("TTL", 5)
-	if err != nil {
-		log.Fatal("Invalid Cache type")
+
+	c := config.Config{
+		Port: "9091",
+		Host: "127.0.0.1",
 	}
-	cache.Put(2, "TWO")
-	cache.Put(5, "ankit")
-	cache.Put("hello", "mishra")
-	cache.Put(7, "snkit")
-	time.Sleep(12 * time.Second)
-	fmt.Println("Thread woke up")
-	cache.Get(7)
-	cache.Get(5)
-	cache.Get(2)
-	cache.Put(9, 9)
-	cache.Get(9)
-	cache.Put("ankit", "data1")
-	cache.Get("ankit")
-	cache.Get("ankit")
-	cache.GetAllCacheData()
-	time.Sleep(1 * time.Hour)
+
+	servHandler := server.NewServerConfig(c)
+
+	httpServer := http.Server{
+		Handler: servHandler,
+	}
+
+	listener, err := net.Listen("tcp", servHandler.Address+":"+servHandler.Port)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	//Attach the listener to handler
+	servHandler.Listener = listener
+
+	//Setting the handler for the route
+	http.Handle("/", servHandler)
+
+	go func() {
+		err := httpServer.Serve(listener)
+		if err != nil {
+			log.Fatalf("HTTP serve: %s", err)
+		}
+	}()
+	// this keeps the server running infinitely until Interrupt occurs
+	terminate := make(chan os.Signal, 1)
+	signal.Notify(terminate, os.Interrupt)
+	<-terminate
+	log.Println("http server stopped")
+}
+
+func handleIncomingTCPConnection(conn net.Conn) {
+	defer conn.Close()
 }
