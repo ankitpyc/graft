@@ -81,7 +81,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		for k, v := range m {
 			s.store.Put(k, v)
-			walLog = append(walLog, raft.WALLogEntry{2, k, v})
+			walLog = append(walLog, raft.WALLogEntry{Comm: 2, Key: k, Value: v})
 		}
 
 	case "DELETE":

@@ -1,5 +1,5 @@
 {
-  "wal_log_file": "wal_file",
+  "wal_log_file": "wal_file.log",
   "port" : "9091",
   "host" : "127.0.0.1"
 }
