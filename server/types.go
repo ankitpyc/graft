@@ -5,26 +5,36 @@ import (
 	factory "cache/factory"
 	"cache/internal/domain"
 	Cache "cache/internal/domain/interface"
+	raft "cache/raft/WAL"
 	"encoding/json"
 	"io"
+	"log"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 )
 
 type Server struct {
 	Listener net.Listener
 	Address  string
+	log      []*raft.WALLogEntry
+	fd       *os.File
 	Port     string
 	store    Cache.Cache
 }
 
 func NewServerConfig(config config.Config) *Server {
 	cache, _ := factory.CreateCache("LRU", 5)
+	file, err := os.OpenFile(config.LogFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		panic(err)
+	}
 	return &Server{
 		Port:    config.Port,
 		Address: config.Host,
 		store:   cache,
+		fd:      file,
 	}
 }
 
@@ -76,6 +86,11 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		for k, v := range m {
 			s.store.Put(k, v)
+			walLog := raft.NewWALLogEntry(raft.Command(2), k, v)
+			encoder := json.NewEncoder(s.fd)
+			if err := encoder.Encode(&walLog); err != nil {
+				log.Print("Failed to encode log entry to JSON: %s", err)
+			}
 		}
 
 	case "DELETE":

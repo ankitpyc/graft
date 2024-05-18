@@ -13,8 +13,9 @@ import (
 func main() {
 
 	c := config.Config{
-		Port: "9091",
-		Host: "127.0.0.1",
+		Port:    "9091",
+		Host:    "127.0.0.1",
+		LogFile: "server.log",
 	}
 
 	servHandler := server.NewServerConfig(c)
@@ -30,7 +31,7 @@ func main() {
 	}
 	//Attach the listener to handler
 	servHandler.Listener = listener
-
+	defer servHandler.Listener.Close()
 	//Setting the handler for the route
 	http.Handle("/", servHandler)
 
