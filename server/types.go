@@ -8,34 +8,29 @@ import (
 	raft "cache/raft/WAL"
 	"encoding/json"
 	"io"
-	"log"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 )
 
 type Server struct {
-	Listener net.Listener
-	Address  string
-	log      []*raft.WALLogEntry
-	fd       *os.File
-	Port     string
-	store    Cache.Cache
+	Listener   net.Listener
+	Address    string
+	WAlManager *raft.WALManager
+	Port       string
+	store      Cache.Cache
 }
 
 func NewServerConfig(config config.Config) *Server {
 	cache, _ := factory.CreateCache("LRU", 5)
-	file, err := os.OpenFile(config.WALFilePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		panic(err)
+	wlManager := raft.NewWALManager(config.WALFilePath)
+	server := &Server{
+		Port:       config.Port,
+		Address:    config.Host,
+		store:      cache,
+		WAlManager: wlManager,
 	}
-	return &Server{
-		Port:    config.Port,
-		Address: config.Host,
-		store:   cache,
-		fd:      file,
-	}
+	return server
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +53,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		return parts[2]
 	}
-
+	var walLog []raft.WALLogEntry = []raft.WALLogEntry{}
 	switch r.Method {
 	case http.MethodGet:
 		k := getKey()
@@ -86,11 +81,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		for k, v := range m {
 			s.store.Put(k, v)
-			walLog := raft.NewWALLogEntry(raft.Command(2), k, v)
-			encoder := json.NewEncoder(s.fd)
-			if err := encoder.Encode(&walLog); err != nil {
-				log.Print("Failed to encode log entry to JSON: %s", err)
-			}
+			walLog = append(walLog, raft.WALLogEntry{2, k, v})
 		}
 
 	case "DELETE":
@@ -104,6 +95,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+	s.WAlManager.LogStream <- walLog
 	return
 }
 

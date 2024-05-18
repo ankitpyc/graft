@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	CONFIG_FILENAME = "config.json"
+	ConfigFilename = "config.json"
 )
 
 func main() {
 	//Loads Configuration
-	c, _ := config.NewConfig().LoadConfig(CONFIG_FILENAME)
+	c, _ := config.NewConfig().LoadConfig(ConfigFilename)
 
 	servHandler := server.NewServerConfig(*c)
 
