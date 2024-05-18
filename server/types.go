@@ -20,7 +20,7 @@ type Server struct {
 }
 
 func NewServerConfig(config config.Config) *Server {
-	cache, _ := factory.CreateCache("TTL", 5)
+	cache, _ := factory.CreateCache("LRU", 5)
 	return &Server{
 		Port:    config.Port,
 		Address: config.Host,
@@ -56,12 +56,12 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		v := s.store.Get(k)
-		if v == -1 {
+		if v == nil {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("key not found"))
 			return
 		}
-		b, err := json.Marshal(map[domain.Key]domain.Key{k: v})
+		b, err := json.Marshal(map[string]domain.Key{k.(string): v})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -69,7 +69,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, string(b))
 	case http.MethodPost:
 		// Read the value from the POST body.
-		m := make(map[domain.Key]domain.Key)
+		m := map[string]domain.Key{}
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return

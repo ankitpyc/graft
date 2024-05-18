@@ -92,6 +92,7 @@ func (cache *LRUCache) Get(k domain.Key) domain.Key {
 
 // GetAllCacheData prints all keys along with their corresponding values in the cache.
 func (cache *LRUCache) GetAllCacheData() {
+	fmt.Println()
 	for key, val := range cache.Store {
 		fmt.Println(key, " , ", val.Val)
 	}
