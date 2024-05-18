@@ -26,7 +26,7 @@ type Server struct {
 
 func NewServerConfig(config config.Config) *Server {
 	cache, _ := factory.CreateCache("LRU", 5)
-	file, err := os.OpenFile(config.LogFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(config.WALFilePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		panic(err)
 	}

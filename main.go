@@ -10,15 +10,15 @@ import (
 	"os/signal"
 )
 
+const (
+	CONFIG_FILENAME = "config.json"
+)
+
 func main() {
+	//Loads Configuration
+	c, _ := config.NewConfig().LoadConfig(CONFIG_FILENAME)
 
-	c := config.Config{
-		Port:    "9091",
-		Host:    "127.0.0.1",
-		LogFile: "server.log",
-	}
-
-	servHandler := server.NewServerConfig(c)
+	servHandler := server.NewServerConfig(*c)
 
 	httpServer := http.Server{
 		Handler: servHandler,
