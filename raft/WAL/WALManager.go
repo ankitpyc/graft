@@ -1,12 +1,14 @@
 package wal
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -62,7 +64,11 @@ func (walManager *WALManager) IncrementLatestCommitedIndex() uint64 {
 
 func (walManager *WALManager) AppendLog(entry WALLogEntry) {
 
-	_, err := encodeWALEntry(walManager, entry)
+	fb, err := encodeWALEntry(walManager, entry)
+	if err != nil {
+		return
+	}
+	_, err = decodeWALEntry(walManager, fb)
 	if err != nil {
 	}
 	return
@@ -70,62 +76,80 @@ func (walManager *WALManager) AppendLog(entry WALLogEntry) {
 
 func encodeWALEntry(walManager *WALManager, entry WALLogEntry) ([]byte, error) {
 	// Initialize buffer with the maximum size
-
-	// Encode timestamp
+	msg := bytes.NewBuffer(nil) // Encode timestamp
 	// Create a buffered writer
-	writer := bufio.NewWriter(walManager.Fd)
-
-	// Write data type byte
-	_, err := writer.Write([]byte{0})
-	if err != nil {
-		return nil, err
-	}
-
+	entry.Timestamp = uint64(time.Now().UnixNano())
 	// Convert and write timestamp field to bytes
-	timestampBytes := make([]byte, 8) // 8 bytes for uint64
-	binary.BigEndian.PutUint64(timestampBytes, entry.Timestamp)
-	_, err = writer.Write(timestampBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert and write log index field to bytes
-	logIndexBytes := make([]byte, 8) // 8 bytes for uint64
-	binary.BigEndian.PutUint64(logIndexBytes, entry.LogIndex)
-	_, err = writer.Write(logIndexBytes)
-	if err != nil {
-		return nil, err
-	}
-
+	err := binary.Write(msg, binary.BigEndian, entry.Timestamp)
+	err = binary.Write(msg, binary.BigEndian, uint64(entry.LogIndex))
+	binary.Write(msg, binary.BigEndian, uint8(len(entry.Key)))
+	msg.WriteString(entry.Key) // Convert and write log index field to bytes
 	// Write key field as bytes
-	_, err = writer.WriteString(entry.Key)
-	if err != nil {
-		return nil, err
-	}
 
 	// Convert and write value field to bytes based on data type
 	switch entry.Value.(type) {
 	case string:
-		_, err = writer.Write([]byte{0})
-		_, err := writer.Write([]byte(entry.Value.(string)))
+		binary.Write(msg, binary.BigEndian, uint8(0))
+		binary.Write(msg, binary.BigEndian, uint8(len(entry.Value.(string))))
+		msg.WriteString(entry.Value.(string))
 		if err != nil {
 			return nil, err
 		}
 	default:
-		_, err = writer.Write([]byte{2})
+		binary.Write(msg, binary.BigEndian, 1)
+		encodedJson, _ := json.Marshal(entry)
+		encodedJson = append(encodedJson, '\n')
+		msg.Write(encodedJson)
 	}
-
 	// Write a newline to separate entries if needed
-	_, err = writer.WriteString("\n")
-
 	// Flush the buffer to ensure all data is written to the file
-	err = writer.Flush()
-	if err != nil {
-		return nil, err
-	}
+	walManager.Fd.Write(msg.Bytes())
+	return msg.Bytes(), nil
+}
+
+func decodeWALEntry(walManager *WALManager, data []byte) (*WALLogEntry, error) {
+	//buf := make([]byte, 1)
+	//bytesRead := []byte{}
+	//for {
+	//	_, err := walManager.Fd.Read(buf)
+	//	if err != nil {
+	//		log.Fatal("recieved error reading from file: ", err)
+	//	}
+	//	bytesRead = append(bytesRead, buf...)
+	//	if buf[0] == '\n' {
+	decodeBytesToWal(walManager, data)
+	//}
+	//}
 	return nil, nil
 }
 
+func decodeBytesToWal(manager *WALManager, read []byte) *WALLogEntry {
+	var timeStamp, Logindex uint64
+	var encodingType uint8
+	var klen, vlen uint8
+
+	binary.Read(bytes.NewReader(read[:8]), binary.BigEndian, &timeStamp)
+	binary.Read(bytes.NewReader(read[8:16]), binary.BigEndian, &Logindex)
+	binary.Read(bytes.NewReader(read[16:17]), binary.BigEndian, &klen)
+	keyBytes := make([]byte, klen)
+	binary.Read(bytes.NewReader(read[17:17+klen]), binary.BigEndian, &keyBytes)
+	fmt.Println(string(keyBytes))
+	binary.Read(bytes.NewReader(read[17+klen:17+klen+1]), binary.BigEndian, &encodingType)
+	binary.Read(bytes.NewReader(read[17+klen+1:17+klen+2]), binary.BigEndian, &vlen)
+	vbytes := make([]byte, vlen)
+	binary.Read(bytes.NewReader(read[17+klen+2:17+klen+2+vlen]), binary.BigEndian, &vbytes)
+	fmt.Println(string(vbytes))
+
+	log := &WALLogEntry{
+		Key:       string(keyBytes),
+		Value:     string(vbytes),
+		Comm:      Command(encodingType),
+		Timestamp: timeStamp,
+		LogIndex:  Logindex,
+	}
+	fmt.Println(log)
+	return log
+}
 func (walManager *WALManager) encodeTimeStamp(entry WALLogEntry) ([]byte, error) {
 	buffer := new(bytes.Buffer)
 	if err := binary.Write(buffer, binary.BigEndian, entry.Timestamp); err != nil {
