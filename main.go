@@ -2,6 +2,7 @@ package main
 
 import (
 	"cache/config"
+	raft "cache/raft/Client"
 	"cache/server"
 	"log"
 	"net"
@@ -17,6 +18,8 @@ const (
 func main() {
 	//Loads Configuration
 	c, _ := config.NewConfig().LoadConfig(ConfigFilename)
+	registry := raft.ServiceRegistry{}
+	registry.InitServiceRegister(c)
 
 	servHandler := server.NewServerConfig(*c)
 
