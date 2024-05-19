@@ -6,9 +6,12 @@ import (
 )
 
 type Config struct {
-	WALFilePath string `json:"wal_log_file"`
-	Port        string `json:"port"`
-	Host        string `json:"host"`
+	WALFilePath          string `json:"wal_log_file"`
+	Port                 string `json:"port"`
+	Host                 string `json:"host"`
+	ClusterName          string `json:"cluster_name"`
+	ClusterUUID          string `json:"cluster_id"`
+	ServiceDiscoveryAddr string `json:"service_discovery_addr"`
 }
 
 func (conf *Config) LoadConfig(configFile string) (*Config, error) {
