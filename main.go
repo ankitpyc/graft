@@ -18,6 +18,7 @@ const (
 func main() {
 	//Loads Configuration
 	c, _ := config.NewConfig().LoadConfig(ConfigFilename)
+	// Initializes Raft Client
 	registry := raft.ServiceRegistry{}
 	registry.InitServiceRegister(c)
 

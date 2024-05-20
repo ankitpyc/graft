@@ -8,10 +8,12 @@ import (
 	raft "cache/raft/Client"
 	wal "cache/raft/WAL"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type Server struct {
@@ -39,8 +41,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/key") {
 		s.handleKeyRequest(w, r)
 		s.store.GetAllCacheData()
-	} else if r.URL.Path == "/join" {
-		s.handleJoin(w, r)
+	} else if r.URL.Path == "/health" {
+		s.HealthStatus(w, r)
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -101,6 +103,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (s *Server) handleJoin(w http.ResponseWriter, r *http.Request) {
-
+func (s *Server) HealthStatus(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Health Check at :", time.Now())
+	w.Write([]byte("SUCCESS"))
 }
