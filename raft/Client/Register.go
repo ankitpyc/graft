@@ -13,8 +13,7 @@ type RegisterInf interface {
 	InitServiceRegister(*config.Config)
 }
 
-type ServiceRegistry struct {
-}
+type ServiceRegistry struct{}
 
 type NODETYPE int
 
@@ -53,4 +52,9 @@ func (sr *ServiceRegistry) InitServiceRegister(config *config.Config) {
 	}
 	fmt.Println("written bytes :", write)
 	defer dial.Close()
+}
+
+func (sr *ServiceRegistry) RegisterRaftClient(config *config.Config) *ServiceRegistry {
+	sr.InitServiceRegister(config)
+	return sr
 }

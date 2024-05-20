@@ -5,7 +5,7 @@ import "time"
 type Discovery struct {
 }
 
-func (discovery *Discovery) HealthCheck(peer *Client) {
+func (discovery *Discovery) HealthCheck(peer *RaftClient) {
 	if peer.NodeDetails.NodeStatus == "Leader" {
 		timer := time.NewTicker(10 * time.Second)
 

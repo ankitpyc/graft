@@ -19,13 +19,13 @@ import (
 type Server struct {
 	Listener   net.Listener
 	Address    string
-	Client     *raft.Client
+	Client     *raft.RaftClient
 	WAlManager *wal.WALManager
 	Port       string
 	store      Cache.Cache
 }
 
-func NewServerConfig(config config.Config) *Server {
+func NewServerConfig(config config.Config, registry *raft.RaftClient) *Server {
 	cache, _ := factory.CreateCache("LRU", 5)
 	wlManager := wal.NewWALManager(config.WALFilePath)
 	server := &Server{
@@ -33,6 +33,7 @@ func NewServerConfig(config config.Config) *Server {
 		Address:    config.Host,
 		store:      cache,
 		WAlManager: wlManager,
+		Client:     registry,
 	}
 	return server
 }
@@ -43,6 +44,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.store.GetAllCacheData()
 	} else if r.URL.Path == "/health" {
 		s.HealthStatus(w, r)
+	} else if r.URL.Path == "/Join" {
+		s.HandlePeerCon(r, w)
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -106,4 +109,15 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HealthStatus(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Health Check at :", time.Now())
 	w.Write([]byte("SUCCESS"))
+}
+
+func (s *Server) HandlePeerCon(r *http.Request, w http.ResponseWriter) {
+	fmt.Println("Received Conn Ping ")
+	var peer *raft.ClusterPeer = &raft.ClusterPeer{}
+	if err := json.NewDecoder(r.Body).Decode(&peer); err != nil {
+		fmt.Println("err", err)
+		return
+	}
+	fmt.Println("Peer Added ", peer.NodeAddr+":"+peer.NodePort)
+	s.Client.AddClusterPeer(peer)
 }
