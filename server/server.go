@@ -41,7 +41,6 @@ func NewServerConfig(config config.Config, registry *raft.RaftClient) *Server {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/key") {
 		s.handleKeyRequest(w, r)
-		s.store.GetAllCacheData()
 	} else if r.URL.Path == "/health" {
 		s.HealthStatus(w, r)
 	} else if r.URL.Path == "/Join" {

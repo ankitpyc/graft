@@ -26,22 +26,21 @@ func NewWALManager(filename string) *WALManager {
 	return walManager
 }
 
-func (wal *WALManager) LogListener() {
+func (walManager *WALManager) LogListener() {
 	for {
 		select {
 		case lo :=
-			<-wal.LogStream:
+			<-walManager.LogStream:
 			for _, entry := range lo {
-				wal.mu.Lock()
-				wal.AppendLog(entry)
-				wal.mu.Unlock()
+				walManager.AppendLog(entry)
 			}
 		}
 	}
 }
 
 func (walManager *WALManager) AppendLog(entry WALLogEntry) *WALLogEntry {
-
+	walManager.mu.Lock()
+	defer walManager.mu.Unlock()
 	commitedEntry, err := encodeWALEntry(walManager, &entry)
 	walManager.LatestCommitIndex = commitedEntry.LogIndex
 	if err != nil {

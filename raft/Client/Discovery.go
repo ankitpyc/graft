@@ -6,7 +6,7 @@ type Discovery struct {
 }
 
 func (discovery *Discovery) HealthCheck(peer *RaftClient) {
-	if peer.NodeDetails.NodeStatus == "Leader" {
+	if peer.NodeDetails.NodeType == 0 {
 		timer := time.NewTicker(10 * time.Second)
 
 		for {

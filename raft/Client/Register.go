@@ -9,11 +9,13 @@ import (
 	"net"
 )
 
-type RegisterInf interface {
+type ServiceRegistryInf interface {
 	InitServiceRegister(*config.Config)
 }
 
-type ServiceRegistry struct{}
+type ServiceRegistry struct {
+	client *RaftClient
+}
 
 type NODETYPE int
 
@@ -31,7 +33,7 @@ type ClusterMember struct {
 }
 
 func (sr *ServiceRegistry) InitServiceRegister(config *config.Config) {
-	dial, err := net.Dial("tcp", config.ServiceDiscoveryAddr)
+	conn, err := net.Dial("tcp", config.ServiceDiscoveryAddr)
 	if err != nil {
 		return
 	}
@@ -46,15 +48,33 @@ func (sr *ServiceRegistry) InitServiceRegister(config *config.Config) {
 	encodedJson, _ := json.Marshal(member)
 	binary.Write(msg, binary.BigEndian, uint8(0))
 	msg.Write(encodedJson)
-	write, err := dial.Write(msg.Bytes())
+	write, err := conn.Write(msg.Bytes())
 	if err != nil {
 		fmt.Println("err", err)
 	}
+	go readResponse(sr, conn)
 	fmt.Println("written bytes :", write)
-	defer dial.Close()
+	//defer conn.Close()
 }
 
-func (sr *ServiceRegistry) RegisterRaftClient(config *config.Config) *ServiceRegistry {
+func readResponse(service *ServiceRegistry, conn net.Conn) {
+	var buffer bytes.Buffer
+	var ClusterMember []*ClusterPeer = make([]*ClusterPeer, 0)
+	for {
+		data := make([]byte, 1024)
+		n, err := conn.Read(data)
+		if err != nil {
+			// Handle error or potential connection close
+		}
+		buffer.Write(data[:n])
+		if bytes.IndexByte(buffer.Bytes(), '\n') > -1 { // Check for newline delimiter (replace if needed)
+			break
+		}
+		json.Unmarshal(data[:n], &ClusterMember)
+		service.client.MemberChannel <- ClusterMember
+	}
+}
+
+func (sr *ServiceRegistry) RegisterRaftClient(config *config.Config) {
 	sr.InitServiceRegister(config)
-	return sr
 }
