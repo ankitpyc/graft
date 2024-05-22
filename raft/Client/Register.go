@@ -71,6 +71,7 @@ func readResponse(service *ServiceRegistry, conn net.Conn) {
 			break
 		}
 		json.Unmarshal(data[:n], &ClusterMember)
+		fmt.Printf("Total Cluster Members %v\n", ClusterMember)
 		service.client.MemberChannel <- ClusterMember
 	}
 }

@@ -118,5 +118,5 @@ func (s *Server) HandlePeerCon(r *http.Request, w http.ResponseWriter) {
 		return
 	}
 	fmt.Println("Peer Added ", peer.NodeAddr+":"+peer.NodePort)
-	s.Client.AddClusterPeer(peer)
+	s.Client.JoinCluster(peer)
 }

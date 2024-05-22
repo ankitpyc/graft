@@ -32,6 +32,13 @@ func NewClusterPeer(nodeId string, nodeAddr string, nodePort string) *ClusterPee
 	}
 }
 
+type RaftClientInf interface {
+	InitRaftClient(config *config.Config) *RaftClient
+	JoinCluster(peer *ClusterPeer)
+	LeaveCluster(peer *ClusterPeer)
+	GetLeader(peer *ClusterPeer)
+}
+
 type RaftClient struct {
 	ClusterName     string
 	ClusterID       uint64
@@ -42,7 +49,7 @@ type RaftClient struct {
 	RMu             sync.RWMutex
 }
 
-func (client *RaftClient) AddClusterPeer(peer *ClusterPeer) {
+func (client *RaftClient) JoinCluster(peer *ClusterPeer) {
 	client.RMu.Lock()
 	client.ClusterMembers = append(client.ClusterMembers, peer)
 	client.RMu.Unlock()
@@ -71,7 +78,7 @@ func listenForChannelEvents(client *RaftClient) {
 			client.RMu.RLock()
 			for _, peer := range event {
 				fmt.Println("got peer as", peer)
-				client.AddClusterPeer(peer)
+				client.JoinCluster(peer)
 			}
 			client.RMu.RUnlock()
 		}
