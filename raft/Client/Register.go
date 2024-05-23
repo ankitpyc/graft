@@ -12,6 +12,7 @@ import (
 
 type ServiceRegistryInf interface {
 	InitServiceRegister(*config.Config)
+	DeregisterService(*config.Config)
 }
 
 type ServiceRegistry struct {
@@ -47,15 +48,45 @@ func (sr *ServiceRegistry) InitServiceRegister(config *config.Config) {
 		ClusterID: config.ClusterUUID,
 	}
 	encodedJson, _ := json.Marshal(member)
-	binary.Write(msg, binary.BigEndian, uint8(0))
+	err = binary.Write(msg, binary.BigEndian, uint8(0))
+	if err != nil {
+		log.Fatalf("marshal service register fail", err)
+	}
 	msg.Write(encodedJson)
 	write, err := conn.Write(msg.Bytes())
+	//defer conn.Close()
 	if err != nil {
 		fmt.Println("err", err)
 	}
 	go readResponse(sr, conn)
 	fmt.Println("written bytes :", write)
-	//defer conn.Close()
+}
+
+func (sr *ServiceRegistry) DeregisterService(config *config.Config) {
+	log.Printf("Node  %s is deregistered from the cluster %s", config.Host+":"+config.Port, config.ServiceDiscoveryAddr)
+	conn, err := net.Dial("tcp", config.ServiceDiscoveryAddr)
+	if err != nil {
+		log.Fatal("connect service register fail", err)
+	}
+	msg := bytes.NewBuffer(nil)
+	member := &ClusterMember{
+		NodeType:  LEAVE,
+		NodeID:    "2",
+		NodeAddr:  config.Host,
+		NodePort:  config.Port,
+		ClusterID: config.ClusterUUID,
+	}
+	encodedJson, _ := json.Marshal(member)
+	err = binary.Write(msg, binary.BigEndian, uint8(1))
+	if err != nil {
+		log.Fatalf("marshal service register fail", err)
+	}
+	msg.Write(encodedJson)
+	write, err := conn.Write(msg.Bytes())
+	if err != nil {
+		fmt.Println("err", err)
+	}
+	fmt.Println("written bytes :", write)
 }
 
 func readResponse(service *ServiceRegistry, conn net.Conn) {
@@ -71,8 +102,12 @@ func readResponse(service *ServiceRegistry, conn net.Conn) {
 		if bytes.IndexByte(buffer.Bytes(), '\n') > -1 { // Check for newline delimiter (replace if needed)
 			break
 		}
-		json.Unmarshal(data[:n], &ClusterMember)
-		fmt.Printf("Total Cluster Members %v\n", ClusterMember)
+		err = json.Unmarshal(data[:n], &ClusterMember)
+		if err != nil {
+			log.Println("unmarshal fail", err)
+			return
+		}
+		fmt.Printf("Total Cluster Members %v\n", len(ClusterMember))
 		service.client.MemberChannel <- ClusterMember
 	}
 }

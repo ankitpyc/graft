@@ -50,6 +50,7 @@ type RaftClient struct {
 }
 
 func (client *RaftClient) JoinCluster(peer *ClusterPeer) {
+	fmt.Println("Node :- ", peer.NodeAddr+":"+peer.NodePort)
 	client.RMu.Lock()
 	client.ClusterMembers = append(client.ClusterMembers, peer)
 	client.RMu.Unlock()
@@ -75,12 +76,10 @@ func listenForChannelEvents(client *RaftClient) {
 	for {
 		select {
 		case event := <-client.MemberChannel:
-			client.RMu.RLock()
+			fmt.Println("Cluster Info : Total Members : ", len(event))
 			for _, peer := range event {
-				fmt.Println("got peer as", peer)
 				client.JoinCluster(peer)
 			}
-			client.RMu.RUnlock()
 		}
 	}
 }

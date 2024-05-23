@@ -111,12 +111,11 @@ func (s *Server) HealthStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandlePeerCon(r *http.Request, w http.ResponseWriter) {
-	fmt.Println("Received Conn Ping ")
 	var peer *raft.ClusterPeer = &raft.ClusterPeer{}
 	if err := json.NewDecoder(r.Body).Decode(&peer); err != nil {
 		fmt.Println("err", err)
 		return
 	}
-	fmt.Println("Peer Added ", peer.NodeAddr+":"+peer.NodePort)
+	fmt.Println("New Peer Added ", peer.NodeAddr+":"+peer.NodePort)
 	s.Client.JoinCluster(peer)
 }

@@ -56,6 +56,7 @@ func main() {
 	terminate := make(chan os.Signal, 1)
 	signal.Notify(terminate, os.Interrupt)
 	<-terminate
+	sr.ServiceRegistry.DeregisterService(c)
 	log.Println("http server stopped")
 }
 
