@@ -5,8 +5,10 @@ import (
 	"cache/factory"
 	Cache "cache/internal/domain/interface"
 	"fmt"
+	"log"
 	"math/rand"
 	"sync"
+	"time"
 )
 
 type NODESTATE int
@@ -18,19 +20,21 @@ const (
 )
 
 type ClusterPeer struct {
-	NodeType  NODESTATE
-	NodeID    string
-	NodeAddr  string
-	NodePort  string
-	ClusterID string
+	NodeType              NODESTATE
+	NodeID                string
+	NodeAddr              string
+	NodePort              string
+	ClusterID             string
+	HasReceivedLeaderPing bool
 }
 
 func NewClusterPeer(nodeId string, nodeAddr string, nodePort string) *ClusterPeer {
 	return &ClusterPeer{
-		NodeID:   nodeId,
-		NodeAddr: nodeAddr,
-		NodePort: nodePort,
-		NodeType: 0,
+		NodeID:                nodeId,
+		NodeAddr:              nodeAddr,
+		NodePort:              nodePort,
+		NodeType:              0,
+		HasReceivedLeaderPing: false,
 	}
 }
 
@@ -39,6 +43,8 @@ type RaftClientInf interface {
 	JoinCluster(peer *ClusterPeer)
 	LeaveCluster(peer *ClusterPeer)
 	GetLeader(peer *ClusterPeer)
+	ListenForLeader(*config.Config)
+	StartLeaderElection(*config.Config)
 	Apply()
 	IsLeader() bool
 }
@@ -75,6 +81,7 @@ func InitRaftClient(config *config.Config) *RaftClient {
 	client.ServiceRegistry = &reg
 	client.ServiceRegistry.client = client
 	go listenForChannelEvents(client)
+	go client.ListenForLeader()
 	return client
 }
 
@@ -96,4 +103,24 @@ func listenForChannelEvents(client *RaftClient) {
 			}
 		}
 	}
+}
+
+func (client *RaftClient) IsLeader() bool {
+	return client.NodeDetails.HasReceivedLeaderPing
+}
+
+func (client *RaftClient) ListenForLeader() bool {
+	timer := time.NewTimer(time.Second * 5)
+	for {
+		select {
+		case <-timer.C:
+			if !client.NodeDetails.HasReceivedLeaderPing {
+				client.StartLeaderElection()
+			}
+		}
+	}
+}
+
+func (client *RaftClient) StartLeaderElection() {
+	log.Print("Starting leader election")
 }
