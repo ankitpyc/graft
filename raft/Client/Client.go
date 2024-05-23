@@ -2,6 +2,8 @@ package raft
 
 import (
 	"cache/config"
+	"cache/factory"
+	Cache "cache/internal/domain/interface"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -28,7 +30,7 @@ func NewClusterPeer(nodeId string, nodeAddr string, nodePort string) *ClusterPee
 		NodeID:   nodeId,
 		NodeAddr: nodeAddr,
 		NodePort: nodePort,
-		NodeType: 1,
+		NodeType: 0,
 	}
 }
 
@@ -37,6 +39,8 @@ type RaftClientInf interface {
 	JoinCluster(peer *ClusterPeer)
 	LeaveCluster(peer *ClusterPeer)
 	GetLeader(peer *ClusterPeer)
+	Apply()
+	IsLeader() bool
 }
 
 type RaftClient struct {
@@ -46,6 +50,7 @@ type RaftClient struct {
 	NodeDetails     *ClusterPeer
 	ServiceRegistry *ServiceRegistry
 	MemberChannel   chan []*ClusterPeer
+	Store           Cache.Cache
 	RMu             sync.RWMutex
 }
 
@@ -66,10 +71,19 @@ func InitRaftClient(config *config.Config) *RaftClient {
 		RMu:            sync.RWMutex{},
 		MemberChannel:  make(chan []*ClusterPeer),
 	}
+	client.Store, _ = client.BuildStore()
 	client.ServiceRegistry = &reg
 	client.ServiceRegistry.client = client
 	go listenForChannelEvents(client)
 	return client
+}
+
+func (client *RaftClient) BuildStore() (Cache.Cache, error) {
+	cache, err := factory.CreateCache("LFU", 4)
+	if err != nil {
+		return nil, err
+	}
+	return cache, nil
 }
 
 func listenForChannelEvents(client *RaftClient) {

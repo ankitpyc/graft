@@ -41,8 +41,6 @@ func main() {
 	servHandler.Listener = listener
 	defer servHandler.Listener.Close()
 	//Setting the handler for the route
-	//TODO :
-	// 1) Move these to individual Handlers
 	http.Handle("/", servHandler)
 
 	go func() {

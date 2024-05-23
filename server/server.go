@@ -2,9 +2,7 @@ package server
 
 import (
 	"cache/config"
-	factory "cache/factory"
 	"cache/internal/domain"
-	Cache "cache/internal/domain/interface"
 	raft "cache/raft/Client"
 	wal "cache/raft/WAL"
 	"encoding/json"
@@ -22,16 +20,13 @@ type Server struct {
 	Client     *raft.RaftClient
 	WAlManager *wal.WALManager
 	Port       string
-	store      Cache.Cache
 }
 
 func NewServerConfig(config config.Config, registry *raft.RaftClient) *Server {
-	cache, _ := factory.CreateCache("LRU", 5)
 	wlManager := wal.NewWALManager(config.WALFilePath)
 	server := &Server{
 		Port:       config.Port,
 		Address:    config.Host,
-		store:      cache,
 		WAlManager: wlManager,
 		Client:     registry,
 	}
@@ -66,7 +61,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		if k == "" {
 			w.WriteHeader(http.StatusBadRequest)
 		}
-		v := s.store.Get(k)
+		v := s.Client.Store.Get(k)
 		if v == nil {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("key not found"))
@@ -86,7 +81,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for k, v := range m {
-			s.store.Put(k, v)
+			s.Client.Store.Put(k, v)
 			walLog = append(walLog, wal.WALLogEntry{Comm: 2, Key: k, Value: v})
 		}
 
@@ -96,7 +91,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		s.store.Delete(k)
+		s.Client.Store.Delete(k)
 
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
