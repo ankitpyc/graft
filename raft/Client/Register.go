@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 )
 
@@ -35,7 +36,7 @@ type ClusterMember struct {
 func (sr *ServiceRegistry) InitServiceRegister(config *config.Config) {
 	conn, err := net.Dial("tcp", config.ServiceDiscoveryAddr)
 	if err != nil {
-		return
+		log.Fatal("connect service register fail", err)
 	}
 	msg := bytes.NewBuffer(nil)
 	member := &ClusterMember{
