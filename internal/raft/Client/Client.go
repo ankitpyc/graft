@@ -100,13 +100,16 @@ func (client *RaftClient) StartElectionServer() {
 	client.Election = NewElectionService(client)
 	sy.Add(1)
 	port := strconv.Itoa(rangeIn(8100, 10000))
-	go startElectionServer(port, client, &sy)
+	client.NodeDetails.GrpcPort = port
+	go startElectionServer(client, &sy)
 	sy.Wait()
 }
 
-func startElectionServer(port string, raft *RaftClient, wg *sync.WaitGroup) {
+func startElectionServer(raft *RaftClient, wg *sync.WaitGroup) {
 	defer wg.Done()
+	port := raft.NodeDetails.GrpcPort
 	lis, err := net.Listen("tcp", ":"+port)
+
 	if err != nil {
 		log.Fatalf("Failed to listen on port %d: %v", port, err)
 	}
@@ -121,7 +124,12 @@ func startElectionServer(port string, raft *RaftClient, wg *sync.WaitGroup) {
 	log.Printf("Election server listening on port %d", port)
 
 	// Start serving incoming connections
-	go s.Serve(lis)
+	go func() {
+		err := s.Serve(lis)
+		if err == nil {
+			fmt.Println("Election server is running fine")
+		}
+	}()
 	if err != nil {
 		log.Fatalf("Failed to serve on port %d: %v", port, err)
 	}

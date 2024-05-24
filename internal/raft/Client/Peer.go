@@ -15,6 +15,7 @@ type ClusterPeer struct {
 	NodePort              string
 	ClusterID             string
 	HasReceivedLeaderPing bool
+	GrpcPort              string
 }
 
 func NewClusterPeer(nodeId string, nodeAddr string, nodePort string) *ClusterPeer {

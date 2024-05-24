@@ -32,6 +32,7 @@ type ClusterMember struct {
 	NodeAddr  string
 	NodePort  string
 	ClusterID string
+	GrpcPort  string
 }
 
 func (sr *ServiceRegistry) jnitServiceRegister(config *config.Config) {
@@ -46,6 +47,7 @@ func (sr *ServiceRegistry) jnitServiceRegister(config *config.Config) {
 		NodeAddr:  config.Host,
 		NodePort:  config.Port,
 		ClusterID: config.ClusterUUID,
+		GrpcPort:  sr.client.NodeDetails.GrpcPort,
 	}
 	encodedJson, _ := json.Marshal(member)
 	err = binary.Write(msg, binary.BigEndian, uint8(0))
@@ -108,6 +110,9 @@ func readResponse(service *ServiceRegistry, conn net.Conn) {
 			return
 		}
 		fmt.Printf("Total Cluster Members %v\n", len(ClusterMember))
+		for _, peer := range ClusterMember {
+			fmt.Println("grpc port ", peer.GrpcPort)
+		}
 		service.client.MemberChannel <- ClusterMember
 	}
 }

@@ -2,13 +2,11 @@ package raft
 
 import (
 	pb "cache/internal/election"
+	"context"
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
-	"math/rand"
-
-	"context"
 	"sync"
 	"time"
 )
@@ -33,7 +31,8 @@ type ElectionService struct {
 }
 
 func NewElectionService(client *RaftClient) *ElectionService {
-	duration := time.Duration(rand.Intn(5)+10) * time.Second
+
+	duration := time.Duration(rangeIn(1, 3)) * time.Second
 	return &ElectionService{
 		mu:                 sync.Mutex{},
 		currentTerm:        1,
@@ -65,8 +64,6 @@ func (es *ElectionService) RequestVote(ctx context.Context, req *pb.VoteRequest)
 }
 
 func (es *ElectionService) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
-	//es.mu.Lock()
-	//defer es.mu.Unlock()
 	fmt.Println("At node :- ", es.client.NodeDetails.NodePort)
 	log.Println("HeartBeat from Leader ")
 	if req.Term >= es.currentTerm {
@@ -81,10 +78,12 @@ func (es *ElectionService) Heartbeat(ctx context.Context, req *pb.HeartbeatReque
 }
 
 func (es *ElectionService) resetElectionTimer(Ctx context.Context) {
+	fmt.Println("resetting election timer")
 	if es.electionTimer != nil {
 		es.electionTimer.Stop()
 	}
 	es.electionTimer = time.AfterFunc(es.electionTimeout, func() {
+		fmt.Println("Starting election timer")
 		es.startElection()
 	})
 }
@@ -107,10 +106,11 @@ func (es *ElectionService) startElection() {
 	nodesLen := len(es.client.ClusterMembers)
 	gatheredVotes := 0
 	for _, node := range es.client.ClusterMembers {
-		if node.NodePort != es.client.NodeDetails.NodePort {
+		if node.GrpcPort != es.client.NodeDetails.GrpcPort {
 			voting, err := es.initiatingVoting(node, req)
 			if err != nil {
-				return
+				fmt.Println("error while initiating voting for ", node.NodePort)
+				continue
 			}
 			if voting.VoteGranted == true {
 				gatheredVotes = gatheredVotes + 1
@@ -118,7 +118,7 @@ func (es *ElectionService) startElection() {
 		}
 	}
 	b := gatheredVotes >= (nodesLen / 2)
-	if b {
+	if b == true {
 		es.leaderID = es.client.NodeDetails.NodePort
 		log.Println("Election success , Congratulations !!")
 		go es.SendHeartbeats()
@@ -129,7 +129,7 @@ func (es *ElectionService) startElection() {
 }
 
 func (es *ElectionService) initiatingVoting(node *ClusterPeer, vr *pb.VoteRequest) (*pb.VoteResponse, error) {
-	dial, err := grpc.NewClient(node.NodeAddr+":"+node.NodePort, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	dial, err := grpc.NewClient(node.NodeAddr+":"+node.GrpcPort, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	defer dial.Close()
 
 	if err != nil {
@@ -137,8 +137,13 @@ func (es *ElectionService) initiatingVoting(node *ClusterPeer, vr *pb.VoteReques
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	pb.NewLeaderElectionClient(dial)
+	client := pb.NewLeaderElectionClient(dial)
 	defer cancel()
-	return es.RequestVote(ctx, vr)
+	re, err := client.RequestVote(ctx, vr)
+	if err != nil {
+		fmt.Println("Error requesting vote", err)
+	}
+	return re, err
 }
 
 // Example service that handles client requests
@@ -166,17 +171,20 @@ type serviceServer struct {
 
 func (es *ElectionService) RunElectionLoop() error {
 	for {
-		time.Sleep(es.electionTimeout)
-		if es.electionInProgress || es.GetLeaderId() == es.client.NodeDetails.NodePort {
-			continue
+		select {
+		case <-es.electionTimer.C:
+			if es.electionInProgress || es.GetLeaderId() == es.client.NodeDetails.NodePort {
+				continue
+			}
+			log.Println("Leader Ping TimedOut , Election will happen at :", es.client.NodeDetails.NodePort)
+			es.client.RMu.Lock()
+			if !es.client.IsLeader() || !es.electionInProgress {
+				log.Println("Starting election")
+				es.startElection()
+			}
+			es.client.RMu.Unlock()
 		}
-		log.Println("Leader Ping timedOut , Election will happen at :", es.client.NodeDetails.NodePort)
-		es.client.RMu.Lock()
-		if !es.client.IsLeader() || !es.electionInProgress {
-			log.Println("Starting election")
-			es.startElection()
-		}
-		es.client.RMu.Unlock()
+
 	}
 }
 
@@ -185,17 +193,10 @@ func (es *ElectionService) GetLeaderId() string {
 }
 
 func (es *ElectionService) SendHeartbeats() {
-	timer := time.NewTicker(5 * time.Second)
-	intialTick := time.NewTimer(200 * time.Nanosecond)
+	timer := time.NewTicker(300 * time.Millisecond)
 	for {
 		select {
 		case <-timer.C:
-			if es.client.IsLeader() {
-				sendHeartBeats(es)
-			} else {
-				break
-			}
-		case <-intialTick.C:
 			if es.client.IsLeader() {
 				sendHeartBeats(es)
 			} else {
@@ -208,25 +209,26 @@ func (es *ElectionService) SendHeartbeats() {
 func sendHeartBeats(es *ElectionService) {
 	es.mu.Lock()
 	defer es.mu.Unlock()
+
 	for _, node := range es.client.ClusterMembers {
-		if node.NodePort == es.client.NodeDetails.NodePort {
+		if node.GrpcPort == es.client.NodeDetails.GrpcPort {
 			continue
 		}
-		url := node.NodeAddr + ":" + node.NodePort
+		url := node.NodeAddr + ":" + node.GrpcPort
+		log.Println("Sending heartbeat to ", url)
 		dial, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		defer dial.Close()
 		if err != nil {
 			log.Println("Cannot create grpc client", err)
 		}
-		defer dial.Close()
+		client := pb.NewLeaderElectionClient(dial)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		pb.NewLeaderElectionClient(dial)
 		defer cancel()
 		hb := pb.HeartbeatRequest{
 			Term:     es.currentTerm,
 			LeaderId: es.leaderID,
 		}
-		log.Println("Sending heartbeat to ", url)
-		heartbeat, err := es.Heartbeat(ctx, &hb)
+		heartbeat, err := client.Heartbeat(ctx, &hb)
 		if err != nil {
 			fmt.Println("Cannot send heartbeat to ", url, err)
 		}
