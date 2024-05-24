@@ -1,11 +1,14 @@
-package raft
+package discovery
 
-import "time"
+import (
+	"cache/internal/raft/Client"
+	"time"
+)
 
 type Discovery struct {
 }
 
-func (discovery *Discovery) HealthCheck(peer *RaftClient) {
+func (discovery *Discovery) HealthCheck(peer *raft.RaftClient) {
 	if peer.NodeDetails.NodeType == 0 {
 		timer := time.NewTicker(10 * time.Second)
 
@@ -21,6 +24,6 @@ func (discovery *Discovery) HealthCheck(peer *RaftClient) {
 	}
 }
 
-func healthCheckEntry(entry *ClusterPeer) {
+func healthCheckEntry(entry *raft.ClusterPeer) {
 	panic("implement me")
 }

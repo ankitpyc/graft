@@ -4,47 +4,25 @@ import (
 	"cache/config"
 	"cache/factory"
 	Cache "cache/internal/domain/interface"
+	pb "cache/internal/election"
+	"context"
 	"fmt"
+	"google.golang.org/grpc"
 	"log"
 	"math/rand"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 )
 
-type NODESTATE int
-
-const (
-	FOLLOWER NODESTATE = iota
-	LEADER
-	CANDIDATE
-)
-
-type ClusterPeer struct {
-	NodeType              NODESTATE
-	NodeID                string
-	NodeAddr              string
-	NodePort              string
-	ClusterID             string
-	HasReceivedLeaderPing bool
-}
-
-func NewClusterPeer(nodeId string, nodeAddr string, nodePort string) *ClusterPeer {
-	return &ClusterPeer{
-		NodeID:                nodeId,
-		NodeAddr:              nodeAddr,
-		NodePort:              nodePort,
-		NodeType:              0,
-		HasReceivedLeaderPing: false,
-	}
-}
-
 type RaftClientInf interface {
 	InitRaftClient(config *config.Config) *RaftClient
 	JoinCluster(peer *ClusterPeer)
+	RunElectionLoop(ctx context.Context, ClusterMembers []*ClusterPeer) error
 	LeaveCluster(peer *ClusterPeer)
 	GetLeader(peer *ClusterPeer)
-	ListenForLeader(*config.Config)
-	StartLeaderElection(*config.Config)
+	ListenForLeader() bool
 	Apply()
 	IsLeader() bool
 }
@@ -56,6 +34,7 @@ type RaftClient struct {
 	NodeDetails     *ClusterPeer
 	ServiceRegistry *ServiceRegistry
 	MemberChannel   chan []*ClusterPeer
+	Election        *ElectionService
 	Store           Cache.Cache
 	RMu             sync.RWMutex
 }
@@ -81,7 +60,7 @@ func InitRaftClient(config *config.Config) *RaftClient {
 	client.ServiceRegistry = &reg
 	client.ServiceRegistry.client = client
 	go listenForChannelEvents(client)
-	go client.ListenForLeader()
+	go client.StartElectionServer()
 	return client
 }
 
@@ -105,22 +84,64 @@ func listenForChannelEvents(client *RaftClient) {
 	}
 }
 
-func (client *RaftClient) IsLeader() bool {
-	return client.NodeDetails.HasReceivedLeaderPing
-}
-
 func (client *RaftClient) ListenForLeader() bool {
 	timer := time.NewTimer(time.Second * 5)
 	for {
 		select {
 		case <-timer.C:
 			if !client.NodeDetails.HasReceivedLeaderPing {
-				client.StartLeaderElection()
 			}
 		}
 	}
 }
 
-func (client *RaftClient) StartLeaderElection() {
-	log.Print("Starting leader election")
+func (client *RaftClient) StartElectionServer() {
+	sy := sync.WaitGroup{}
+	client.Election = NewElectionService(client)
+	sy.Add(1)
+	port := strconv.Itoa(rangeIn(8100, 10000))
+	go startElectionServer(port, client, &sy)
+	sy.Wait()
+}
+
+func startElectionServer(port string, raft *RaftClient, wg *sync.WaitGroup) {
+	defer wg.Done()
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("Failed to listen on port %d: %v", port, err)
+	}
+
+	// Create a new gRPC server instance
+	s := grpc.NewServer()
+
+	// Register the ElectionService with the gRPC server
+	pb.RegisterLeaderElectionServer(s, raft.Election)
+
+	// Log that the server is now listening on the specified port
+	log.Printf("Election server listening on port %d", port)
+
+	// Start serving incoming connections
+	go s.Serve(lis)
+	if err != nil {
+		log.Fatalf("Failed to serve on port %d: %v", port, err)
+	}
+
+	_, _ = context.WithCancel(context.Background())
+	// Start the election loop
+	err = raft.Election.RunElectionLoop()
+	if err != nil {
+		fmt.Println("Election lost")
+	}
+}
+
+func (client *RaftClient) Apply() {
+
+}
+
+func (client *RaftClient) IsLeader() bool {
+	return client.NodeDetails.NodePort == client.Election.GetLeaderId()
+}
+
+func rangeIn(low, hi int) int {
+	return low + rand.Intn(hi-low)
 }

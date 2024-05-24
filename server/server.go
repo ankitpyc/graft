@@ -3,8 +3,8 @@ package server
 import (
 	"cache/config"
 	"cache/internal/domain"
-	raft "cache/raft/Client"
-	wal "cache/raft/WAL"
+	"cache/internal/raft/Client"
+	wal2 "cache/internal/raft/WAL"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,12 +18,12 @@ type Server struct {
 	Listener   net.Listener
 	Address    string
 	Client     *raft.RaftClient
-	WAlManager *wal.WALManager
+	WAlManager *wal2.WALManager
 	Port       string
 }
 
 func NewServerConfig(config config.Config, registry *raft.RaftClient) *Server {
-	wlManager := wal.NewWALManager(config.WALFilePath)
+	wlManager := wal2.NewWALManager(config.WALFilePath)
 	server := &Server{
 		Port:       config.Port,
 		Address:    config.Host,
@@ -54,7 +54,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		return parts[2]
 	}
-	var walLog []wal.WALLogEntry = []wal.WALLogEntry{}
+	var walLog []wal2.WALLogEntry = []wal2.WALLogEntry{}
 	switch r.Method {
 	case http.MethodGet:
 		k := getKey()
@@ -82,7 +82,7 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		for k, v := range m {
 			s.Client.Store.Put(k, v)
-			walLog = append(walLog, wal.WALLogEntry{Comm: 2, Key: k, Value: v})
+			walLog = append(walLog, wal2.WALLogEntry{Comm: 2, Key: k, Value: v})
 		}
 
 	case "DELETE":

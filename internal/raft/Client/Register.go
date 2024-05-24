@@ -34,7 +34,7 @@ type ClusterMember struct {
 	ClusterID string
 }
 
-func (sr *ServiceRegistry) InitServiceRegister(config *config.Config) {
+func (sr *ServiceRegistry) jnitServiceRegister(config *config.Config) {
 	conn, err := net.Dial("tcp", config.ServiceDiscoveryAddr)
 	if err != nil {
 		log.Fatal("connect service register fail", err)
@@ -113,5 +113,5 @@ func readResponse(service *ServiceRegistry, conn net.Conn) {
 }
 
 func (sr *ServiceRegistry) RegisterRaftClient(config *config.Config) {
-	sr.InitServiceRegister(config)
+	sr.jnitServiceRegister(config)
 }
