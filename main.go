@@ -34,7 +34,7 @@ func main() {
 	listener, err := net.Listen("tcp", servHandler.Address+":"+servHandler.Port)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("err")
 	}
 	fmt.Println("Serving on " + servHandler.Address + ":" + servHandler.Port)
 	//Attach the listener to handler

@@ -77,6 +77,7 @@ func (sr *ServiceRegistry) DeregisterService(config *config.Config) {
 		NodeAddr:  config.Host,
 		NodePort:  config.Port,
 		ClusterID: config.ClusterUUID,
+		GrpcPort:  sr.client.NodeDetails.GrpcPort,
 	}
 	encodedJson, _ := json.Marshal(member)
 	err = binary.Write(msg, binary.BigEndian, uint8(1))

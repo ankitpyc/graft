@@ -36,10 +36,12 @@ func NewServerConfig(config config.Config, registry *raft.RaftClient) *Server {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/key") {
 		s.handleKeyRequest(w, r)
-	} else if r.URL.Path == "/health" {
+	} else if r.URL.Path == "/Health" {
 		s.HealthStatus(w, r)
 	} else if r.URL.Path == "/Join" {
 		s.HandlePeerCon(r, w)
+	} else if r.URL.Path == "/Leave" {
+		s.HandleLeaveCon(r, w)
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -113,4 +115,13 @@ func (s *Server) HandlePeerCon(r *http.Request, w http.ResponseWriter) {
 	}
 	fmt.Println("New Peer Added ", peer.NodeAddr+":"+peer.NodePort)
 	s.Client.JoinCluster(peer)
+}
+func (s *Server) HandleLeaveCon(r *http.Request, w http.ResponseWriter) {
+	var peer *raft.ClusterPeer = &raft.ClusterPeer{}
+	if err := json.NewDecoder(r.Body).Decode(&peer); err != nil {
+		fmt.Println("err", err)
+		return
+	}
+	fmt.Println("Peer Removed ", peer.NodeAddr+":"+peer.NodePort)
+	s.Client.LeaveCluster(peer)
 }

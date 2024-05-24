@@ -40,10 +40,25 @@ type RaftClient struct {
 }
 
 func (client *RaftClient) JoinCluster(peer *ClusterPeer) {
-	fmt.Println("Node :- ", peer.NodeAddr+":"+peer.NodePort)
+	fmt.Println("Node :- ", peer.NodeAddr+":"+peer.NodePort, " || grpc port ", peer.NodeAddr+":"+peer.GrpcPort)
 	client.RMu.Lock()
 	client.ClusterMembers = append(client.ClusterMembers, peer)
 	client.RMu.Unlock()
+}
+func (client *RaftClient) LeaveCluster(peer *ClusterPeer) {
+	fmt.Println("Node :- ", peer.NodeAddr+":"+peer.NodePort, " || grpc port ", peer.NodeAddr+":"+peer.GrpcPort)
+	client.RMu.Lock()
+	client.leaveCluster(peer)
+	client.RMu.Unlock()
+}
+
+func (client *RaftClient) leaveCluster(peer *ClusterPeer) {
+	for i, mem := range client.ClusterMembers {
+		if mem.NodePort == peer.NodePort {
+			// Remove the member from the slice
+			client.ClusterMembers = append(client.ClusterMembers, client.ClusterMembers[i+1:]...)
+		}
+	}
 }
 
 func InitRaftClient(config *config.Config) *RaftClient {
