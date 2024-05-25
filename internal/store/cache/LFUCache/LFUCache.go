@@ -2,7 +2,7 @@ package cache
 
 import (
 	"cache/internal/domain"
-	"cache/internal/domain/interface"
+	Cache "cache/internal/store/cache/interface"
 	"errors"
 	"fmt"
 	"sync"
@@ -27,7 +27,7 @@ type LFUCache struct {
 }
 
 // NewCache creates a new instance of LFUCache with the specified capacity.
-func NewCache(capacity int) _interface.Cache {
+func NewCache(capacity int) Cache.Cache {
 	return &LFUCache{
 		Store:    make(map[domain.Key]*domain.FreqListNode),
 		FreqMap:  make(map[int]*domain.FreqListNode),
@@ -39,7 +39,7 @@ func NewCache(capacity int) _interface.Cache {
 
 // Put adds a new key-value pair to the cache.
 // If the cache is at full capacity, it evicts the least frequently used item before adding the new one.
-func (cache *LFUCache) Put(k domain.Key, val domain.Key) {
+func (cache *LFUCache) Set(k string, val string) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
@@ -59,18 +59,18 @@ func (cache *LFUCache) Put(k domain.Key, val domain.Key) {
 
 // Get retrieves the value associated with the given key from the cache.
 // If the key doesn't exist in the cache, it returns an error.
-func (cache *LFUCache) Get(K domain.Key) domain.Key {
+func (cache *LFUCache) Get(key string) (domain.Key, bool) {
 	cache.lock.RLock()
 	defer cache.lock.RUnlock()
 
-	currNode, ok := cache.Store[K]
+	currNode, ok := cache.Store[key]
 	if !ok {
-		return errors.New("key doesn't exist")
+		return errors.New("key doesn't exist"), false
 	}
 
 	// Update the frequency of the accessed node and adjust its position in the frequency list.
 	nodeFreq := cache.updateNode(currNode)
-	return nodeFreq.Val
+	return nodeFreq.Val, true
 }
 
 // GetAllCacheData prints all keys along with their corresponding frequency levels.
@@ -99,7 +99,7 @@ func (cache *LFUCache) PrintFreqWiseCachedData() {
 }
 
 // createNode creates a new frequency node for the given key-value pair and inserts it into the cache.
-func (cache *LFUCache) createNode(k domain.Key, val domain.Key) *domain.FreqListNode {
+func (cache *LFUCache) createNode(k string, val string) *domain.FreqListNode {
 	node := &domain.FreqListNode{
 		ListNode: &domain.ListNode{Val: val, Key: k},
 		Freq:     1,
@@ -200,6 +200,7 @@ func (cache *LFUCache) EvictKey() {
 	}
 
 }
-func (cache *LFUCache) Delete(key domain.Key) {
+func (cache *LFUCache) Delete(key string) bool {
 	delete(cache.Store, key)
+	return true
 }

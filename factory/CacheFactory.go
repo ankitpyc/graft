@@ -1,11 +1,11 @@
 package factory
 
 import (
-	LFUCache "cache/internal/domain/LFUCache"
-	LRUCache "cache/internal/domain/LRUCache"
-	TTLCache "cache/internal/domain/TTLCache"
 	errors "cache/internal/domain/errors"
-	Cache "cache/internal/domain/interface"
+	"cache/internal/store"
+	LFUCache "cache/internal/store/cache/LFUCache"
+	LRUCache "cache/internal/store/cache/LRUCache"
+	TTLCache "cache/internal/store/cache/TTLCache"
 	"time"
 )
 
@@ -17,7 +17,7 @@ import (
 //   Cache: A cache instance.
 //   error: Nil if successful, otherwise an error indicating the cause.
 
-func CreateCache(cacheType string, capacity int) (Cache.Cache, error) {
+func CreateCache(cacheType string, capacity int) (store.StoreInf, error) {
 	var err error = nil
 	switch cacheType {
 	case "LRU":

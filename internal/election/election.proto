@@ -9,7 +9,6 @@ service LeaderElection {
   rpc RequestVote(VoteRequest) returns (VoteResponse);
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 }
-
 // The message definitions.
 message VoteRequest {
   string candidate_id = 1;

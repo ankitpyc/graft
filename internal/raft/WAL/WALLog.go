@@ -19,11 +19,11 @@ type WALLogEntry struct {
 	LogIndex  uint64     `json:"LogIndex"`
 }
 
-func NewWALLogEntry(comm Command, key string, value domain.Key) WALLogEntry {
+func NewWALLogEntry(comm Command, key string, value domain.Key, commitedLogIndex uint64, clientTerm uint64) WALLogEntry {
 	return WALLogEntry{
 		Comm:     comm,
 		Key:      key,
 		Value:    value,
-		LogIndex: 0,
+		LogIndex: commitedLogIndex,
 	}
 }

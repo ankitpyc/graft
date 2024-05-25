@@ -2,7 +2,7 @@ package cache
 
 import (
 	"cache/internal/domain"
-	_interface "cache/internal/domain/interface"
+	"cache/internal/store/cache/interface"
 	"fmt"
 	"log"
 	"sync"
@@ -19,9 +19,10 @@ type TTLCache struct {
 	evicted   chan domain.Key          // evicted is a channel to communicate evicted keys.
 }
 
-func (cache *TTLCache) Delete(k domain.Key) {
+func (cache *TTLCache) Delete(key string) bool {
 	//TODO implement me
-	delete(cache.CacheMap, k)
+	delete(cache.CacheMap, key)
+	return true
 }
 
 // EvictKey is a placeholder function for TTLCache to satisfy the Cache interface.
@@ -46,13 +47,13 @@ func NewCache(capacity int, interval time.Duration, ttl time.Duration) _interfac
 
 // Get retrieves the value associated with the given key from the cache.
 // If the key doesn't exist in the cache, it returns -1.
-func (cache *TTLCache) Get(key domain.Key) domain.Key {
+func (cache *TTLCache) Get(key string) (domain.Key, bool) {
 	if entry, ok := cache.CacheMap[key]; ok {
 		cache.updateEntry(entry)
-		return entry.val
+		return entry.val, false
 	}
 	log.Print("Entry not found in cache for key: ", key)
-	return -1
+	return -1, false
 }
 
 // Evict removes the entry associated with the given key from the cache.
@@ -68,7 +69,7 @@ func (cache *TTLCache) GetAllCacheData() {
 }
 
 // Put adds a new key-value pair to the cache.
-func (cache *TTLCache) Put(key domain.Key, val domain.Key) {
+func (cache *TTLCache) Set(key string, val string) {
 	entry := &TTLEntry{
 		val:       val,
 		key:       key,
@@ -87,8 +88,8 @@ func (cache *TTLCache) updateEntry(entry *TTLEntry) {
 
 // TTLEntry represents an entry in the TTL cache with key, value, and entry time.
 type TTLEntry struct {
-	key       domain.Key   // key is the unique identifier for the cache entry.
-	val       domain.Key   // val is the value associated with the cache entry.
+	key       string       // key is the unique identifier for the cache entry.
+	val       string       // val is the value associated with the cache entry.
 	EntryTime time.Time    // EntryTime represents the time when the entry was added to the cache.
 	mu        sync.RWMutex // mu provides synchronization for concurrent access to the entry.
 }

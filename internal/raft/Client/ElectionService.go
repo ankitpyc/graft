@@ -146,29 +146,6 @@ func (es *ElectionService) initiatingVoting(node *ClusterPeer, vr *pb.VoteReques
 	return re, err
 }
 
-// Example service that handles client requests
-type serviceServer struct {
-	mu                 sync.Mutex
-	leaderID           string
-	electionInProgress bool
-}
-
-//func (s *serviceServer) HandleRequest(ctx context.Context, req *ClientRequest) (ClientResponse, error) {
-//	s.mu.Lock()
-//	defer s.mu.Unlock()
-//
-//	if s.electionInProgress {
-//		return &ClientResponse{Message: "Election in progress, please retry"}, nil
-//	}
-//
-//	if s.leaderID != "self" {
-//		return &ClientResponse{Message: "Not the leader, please contact the leader"}, nil
-//	}
-//
-//	// Handle the request
-//	return &ClientResponse{Message: "Request handled by leader"}, nil
-//}
-
 func (es *ElectionService) RunElectionLoop() error {
 	for {
 		select {

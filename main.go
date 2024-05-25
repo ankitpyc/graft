@@ -23,10 +23,11 @@ func main() {
 	c, _ := config.NewConfig().LoadConfig(ConfigFilename)
 	c.Port = strconv.Itoa(rangeIn(2000, 8000))
 	// Initializes Raft Client
-	sr := raft.InitRaftClient(c)
-	sr.ServiceRegistry.RegisterRaftClient(c)
-	servHandler := server.NewServerConfig(*c, sr)
-	servHandler.Client = sr
+	client := raft.InitRaftClient(c)
+	servHandler := server.NewServerConfig(*c, client)
+	servHandler.Client = client
+	client.ServiceRegistry.RegisterRaftClient(c)
+	servHandler.StartGRPCServer()
 	httpServer := http.Server{
 		Handler: servHandler,
 	}
@@ -54,7 +55,7 @@ func main() {
 	terminate := make(chan os.Signal, 1)
 	signal.Notify(terminate, os.Interrupt)
 	<-terminate
-	sr.ServiceRegistry.DeregisterService(c)
+	client.ServiceRegistry.DeregisterService(c)
 	log.Println("http server stopped")
 }
 

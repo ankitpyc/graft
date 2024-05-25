@@ -3,14 +3,19 @@ package server
 import (
 	"cache/config"
 	"cache/internal/domain"
+	pb "cache/internal/election"
 	"cache/internal/raft/Client"
 	wal2 "cache/internal/raft/WAL"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,7 +28,7 @@ type Server struct {
 }
 
 func NewServerConfig(config config.Config, registry *raft.RaftClient) *Server {
-	wlManager := wal2.NewWALManager(config.WALFilePath)
+	wlManager := wal2.NewWALManager(config.WALFilePath, registry)
 	server := &Server{
 		Port:       config.Port,
 		Address:    config.Host,
@@ -48,28 +53,29 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
-
-	getKey := func() domain.Key {
+	getKey := func() string {
 		parts := strings.Split(r.URL.Path, "/")
 		if len(parts) != 3 {
 			return ""
 		}
 		return parts[2]
 	}
-	var walLog []wal2.WALLogEntry = []wal2.WALLogEntry{}
+	var walLog = []*pb.LogEntry{}
+
 	switch r.Method {
 	case http.MethodGet:
 		k := getKey()
 		if k == "" {
 			w.WriteHeader(http.StatusBadRequest)
 		}
-		v := s.Client.Store.Get(k)
+		v, _ := s.Client.Store.Get(k)
+		fmt.Println("Received value from store: ", v)
 		if v == nil {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("key not found"))
 			return
 		}
-		b, err := json.Marshal(map[string]domain.Key{k.(string): v})
+		b, err := json.Marshal(map[string]domain.Key{k: v})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -77,14 +83,9 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, string(b))
 	case http.MethodPost:
 		// Read the value from the POST body.
-		m := map[string]domain.Key{}
-		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+		_, done := s.handleSetKey(w, r, walLog)
+		if done {
 			return
-		}
-		for k, v := range m {
-			s.Client.Store.Put(k, v)
-			walLog = append(walLog, wal2.WALLogEntry{Comm: 2, Key: k, Value: v})
 		}
 
 	case "DELETE":
@@ -98,8 +99,29 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-	s.WAlManager.LogStream <- walLog
 	return
+}
+
+func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request, walLog []*pb.LogEntry) ([]*pb.LogEntry, bool) {
+	m := map[string]string{}
+	logentry := &pb.AppendEntriesRequest{LeaderId: s.Client.Election.GetLeaderId()}
+	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return nil, true
+	}
+	for k, v := range m {
+		walLog = append(walLog, &pb.LogEntry{Term: s.WAlManager.LatestCommitIndex, Key: k, Value: v, Operation: 0, TimeName: timestamppb.Now()})
+	}
+	logentry.Entries = walLog
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	s.WAlManager.ReplicateEntries(logentry, wg)
+	wg.Wait()
+	for _, entry := range walLog {
+		s.Client.Store.Set(entry.Key, entry.Value)
+	}
+	s.WAlManager.LogStream <- logentry
+	return walLog, false
 }
 
 func (s *Server) HealthStatus(w http.ResponseWriter, r *http.Request) {
@@ -124,4 +146,26 @@ func (s *Server) HandleLeaveCon(r *http.Request, w http.ResponseWriter) {
 	}
 	fmt.Println("Peer Removed ", peer.NodeAddr+":"+peer.NodePort)
 	s.Client.LeaveCluster(peer)
+}
+
+func (s *Server) StartGRPCServer() {
+	port := s.Client.NodeDetails.GrpcPort
+	lis, err := net.Listen("tcp", ":"+port)
+
+	if err != nil {
+		log.Fatalf("Failed to listen on port %d: %v", port, err)
+	}
+
+	// Create a new gRPC server instance
+	gserv := grpc.NewServer()
+	s.Client.GrpcServer = gserv
+	// Register the ElectionService with the gRPC server
+	pb.RegisterLeaderElectionServer(gserv, s.Client.Election)
+	pb.RegisterRaftLogReplicationServer(gserv, s.WAlManager.LogReplicator)
+	go func() {
+		err := gserv.Serve(lis)
+		if err != nil {
+			log.Fatalf("Failed GRPC serve on port %d: %v", port, err)
+		}
+	}()
 }

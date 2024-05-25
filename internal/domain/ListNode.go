@@ -2,8 +2,8 @@ package domain
 
 // ListNode represents a node in a linked list.
 type ListNode struct {
-	Val  Key       // Val represents the value stored in the node.
-	Key  Key       // Key represents the key associated with the value.
+	Val  string    // Val represents the value stored in the node.
+	Key  string    // Key represents the key associated with the value.
 	Next *ListNode // Next points to the next node in the linked list.
 	Prev *ListNode // Prev points to the previous node in the linked list.
 }
