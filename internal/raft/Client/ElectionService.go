@@ -4,9 +4,7 @@ import (
 	pb "cache/internal/election"
 	"cache/internal/validation"
 	"context"
-	"errors"
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
@@ -25,7 +23,7 @@ type ElectionServiceInf interface {
 
 type ElectionService struct {
 	pb.UnimplementedLeaderElectionServer
-	mu                 sync.Mutex
+	sync.Mutex
 	currentTerm        int32
 	votedFor           string
 	leaderID           string
@@ -39,7 +37,6 @@ func NewElectionService(client *Client) *ElectionService {
 
 	duration := time.Duration(rangeIn(5, 10)) * time.Second
 	return &ElectionService{
-		mu:                 sync.Mutex{},
 		currentTerm:        1,
 		votedFor:           "",
 		electionTimer:      time.NewTimer(duration),
@@ -51,8 +48,8 @@ func NewElectionService(client *Client) *ElectionService {
 }
 
 func (es *ElectionService) RequestVote(ctx context.Context, req *pb.VoteRequest) (*pb.VoteResponse, error) {
-	es.mu.Lock()
-	defer es.mu.Unlock()
+	es.Lock()
+	defer es.Unlock()
 	fmt.Println("requesting vote at", es.client.NodeDetails.NodePort)
 	if req.Term > es.currentTerm {
 		es.currentTerm = req.Term
@@ -69,11 +66,9 @@ func (es *ElectionService) RequestVote(ctx context.Context, req *pb.VoteRequest)
 }
 
 func (es *ElectionService) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
-	fmt.Println("At node :- ", es.client.NodeDetails.NodePort)
-	if err := validateJWTFromContext(es, ctx); err != nil {
+	if err := validation.ValidateJWTFromContext(es.client.ServiceRegistry.Secret, ctx); err != nil {
 		return &pb.HeartbeatResponse{Success: false, Term: es.currentTerm}, err
 	}
-	log.Println("HeartBeat from Leader ")
 	if req.Term >= es.currentTerm {
 		es.currentTerm = req.Term
 		es.leaderID = req.LeaderId
@@ -81,47 +76,15 @@ func (es *ElectionService) Heartbeat(ctx context.Context, req *pb.HeartbeatReque
 		es.resetElectionTimer(ctx)
 		return &pb.HeartbeatResponse{Success: true, Term: es.currentTerm}, nil
 	}
-	fmt.Println("Sending Success Response")
 	return &pb.HeartbeatResponse{Success: false, Term: es.currentTerm}, nil
 }
 
-func validateJWTFromContext(es *ElectionService, ctx context.Context) error {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return fmt.Errorf("missing metadata")
-	}
-
-	authHeader, ok := md["authorization"]
-	if !ok || len(authHeader) == 0 {
-		return fmt.Errorf("missing authorization header")
-	}
-
-	tokenStr := authHeader[0][len("Bearer "):]
-	claims := &validation.Claims{}
-	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(es.client.ServiceRegistry.Secret), nil
-	})
-	if err != nil {
-		if errors.Is(err, jwt.ErrSignatureInvalid) {
-			return fmt.Errorf("invalid token signature")
-		}
-		return fmt.Errorf("could not parse token: %v", err)
-	}
-	if !token.Valid {
-		return fmt.Errorf("invalid token")
-	}
-
-	fmt.Printf("Authenticated request from NodeID: %s\n", claims.FollowerId)
-	return nil
-}
-
 func (es *ElectionService) resetElectionTimer(Ctx context.Context) {
-	fmt.Println("resetting election timer")
 	if es.electionTimer != nil {
 		es.electionTimer.Stop()
 	}
 	es.electionTimer = time.AfterFunc(es.electionTimeout, func() {
-		fmt.Println("Starting election timer")
+		log.Printf("election timer expired . starting election %v at node %s", time.Now(), es.client.NodeDetails.NodePort)
 		es.startElection()
 	})
 }
@@ -131,11 +94,11 @@ func (es *ElectionService) startElection() {
 		fmt.Println("Election already in progress")
 		return
 	}
-	es.mu.Lock()
+	es.Lock()
+	defer es.Unlock()
 	es.currentTerm++
 	es.votedFor = "self"
 	es.electionInProgress = true
-	es.mu.Unlock()
 	// Adding logic for RequestVote
 	req := &pb.VoteRequest{
 		Term:        es.currentTerm,
@@ -155,15 +118,13 @@ func (es *ElectionService) startElection() {
 			}
 		}
 	}
-	b := gatheredVotes >= (nodesLen / 2)
-	if b == true {
+	quorumAchieved := gatheredVotes >= (nodesLen / 2)
+	if quorumAchieved == true {
 		es.leaderID = es.client.NodeDetails.NodePort
 		log.Println("Election success , Congratulations !!")
 		go es.SendHeartbeats()
 	}
-	es.mu.Lock()
 	es.electionInProgress = false
-	es.mu.Unlock()
 }
 
 func (es *ElectionService) initiatingVoting(node *ClusterPeer, vr *pb.VoteRequest) (*pb.VoteResponse, error) {
@@ -222,8 +183,8 @@ func (es *ElectionService) SendHeartbeats() {
 }
 
 func sendHeartBeats(es *ElectionService) {
-	es.mu.Lock()
-	defer es.mu.Unlock()
+	es.Lock()
+	defer es.Unlock()
 
 	for _, node := range es.client.ClusterMembers {
 		if node.GrpcPort == es.client.NodeDetails.GrpcPort {
@@ -238,9 +199,8 @@ func sendHeartBeats(es *ElectionService) {
 			log.Println("Cannot create grpc client", err)
 		}
 		client := pb.NewLeaderElectionClient(dial)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ctx, _ := context.WithTimeout(context.Background(), time.Second)
 		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
-		defer cancel()
 		hb := pb.HeartbeatRequest{
 			Term:     es.currentTerm,
 			LeaderId: es.leaderID,

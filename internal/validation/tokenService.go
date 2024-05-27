@@ -1,23 +1,26 @@
 package validation
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"google.golang.org/grpc/metadata"
 	"time"
 )
 
-type tokenServiceInf interface {
+type TokenServiceInf interface {
 	GetToken(secret string, follower string, leader string) string
-	ValidateToken(secret string, token string) (bool, error)
-	ValidateClaims(claims *Claims) (bool, error)
+	ValidateToken(secret string, tok string) (bool, error)
+	ValidateClaims(claim *Claims) (bool, error)
+	ValidateJWTFromContext(secret string, ctx context.Context) error
 }
 
 func GetToken(secret string, follower string, leader string) string {
 	claims := &Claims{
 		FollowerId: follower,
 		LeaderId:   leader,
-		ClusterId:  "3",
+		ClusterId:  "1",
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(10 * time.Minute).Unix(),
 		},
@@ -26,7 +29,7 @@ func GetToken(secret string, follower string, leader string) string {
 	awoken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tok, err := awoken.SignedString([]byte(secret))
 	if err != nil {
-		fmt.Println("error is ", err)
+		fmt.Println("error :  ", err)
 	}
 	return tok
 }
@@ -60,4 +63,34 @@ func ValidateClaims(claim *Claims) (bool, error) {
 		return false, errors.New("invalid Claim . ClusterId is required")
 	}
 	return true, nil
+}
+
+func ValidateJWTFromContext(secret string, ctx context.Context) error {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return fmt.Errorf("missing metadata")
+	}
+
+	authHeader, ok := md["authorization"]
+	if !ok || len(authHeader) == 0 {
+		return fmt.Errorf("missing authorization header")
+	}
+
+	tokenStr := authHeader[0][len("Bearer "):]
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secret), nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrSignatureInvalid) {
+			return fmt.Errorf("invalid token signature")
+		}
+		return fmt.Errorf("could not parse token: %v", err)
+	}
+	if !token.Valid {
+		return fmt.Errorf("invalid token")
+	}
+
+	fmt.Printf("Authenticated request from NodeID: %s\n", claims.FollowerId)
+	return nil
 }

@@ -1,4 +1,4 @@
 
-sgo:S1186O"ZAdd a nested comment explaining why this function is empty or complete the implementation.(ÓÎ«½ûÿÿÿÿ
-{go:S100\"hRename function "_LeaderElection_RequestVote_Handler" to match the regular expression ^(_|[a-zA-Z0-9]+)$(ññ×”
-~go:S100n"fRename function "_LeaderElection_Heartbeat_Handler" to match the regular expression ^(_|[a-zA-Z0-9]+)$(í•üŒüÿÿÿÿ
+™go:S1186O"ZAdd a nested comment explaining why this function is empty or complete the implementation.(ÓÎ«½ûÿÿÿÿJ$f2721c03-c7ae-40af-a62d-b33a75e21190
+¡go:S100\"hRename function "_LeaderElection_RequestVote_Handler" to match the regular expression ^(_|[a-zA-Z0-9]+)$(ññ×”J$38ec2b62-9e1f-4d65-8366-44d185d61879
+¤go:S100n"fRename function "_LeaderElection_Heartbeat_Handler" to match the regular expression ^(_|[a-zA-Z0-9]+)$(í•üŒüÿÿÿÿJ$34cc7a28-f676-4065-adef-f69a026750d9
