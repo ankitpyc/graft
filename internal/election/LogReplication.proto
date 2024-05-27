@@ -30,6 +30,7 @@ message AppendEntriesRequest {
   repeated LogEntry entries = 5;
   int32 leader_commit = 6;
   string leader_address = 7;
+  string token = 8;
 }
 
 message AppendEntriesResponse {

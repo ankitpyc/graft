@@ -8,7 +8,7 @@ import (
 type Discovery struct {
 }
 
-func (discovery *Discovery) HealthCheck(peer *raft.RaftClient) {
+func (discovery *Discovery) HealthCheck(peer *raft.Client) {
 	if peer.NodeDetails.NodeType == 0 {
 		timer := time.NewTicker(10 * time.Second)
 

@@ -2,11 +2,16 @@ package raft
 
 import (
 	pb "cache/internal/election"
+	"cache/internal/validation"
 	"context"
+	"errors"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -25,14 +30,14 @@ type ElectionService struct {
 	votedFor           string
 	leaderID           string
 	electionInProgress bool
-	client             *RaftClient
+	client             *Client
 	electionTimer      *time.Timer
 	electionTimeout    time.Duration
 }
 
-func NewElectionService(client *RaftClient) *ElectionService {
+func NewElectionService(client *Client) *ElectionService {
 
-	duration := time.Duration(rangeIn(1, 3)) * time.Second
+	duration := time.Duration(rangeIn(5, 10)) * time.Second
 	return &ElectionService{
 		mu:                 sync.Mutex{},
 		currentTerm:        1,
@@ -65,6 +70,9 @@ func (es *ElectionService) RequestVote(ctx context.Context, req *pb.VoteRequest)
 
 func (es *ElectionService) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
 	fmt.Println("At node :- ", es.client.NodeDetails.NodePort)
+	if err := validateJWTFromContext(es, ctx); err != nil {
+		return &pb.HeartbeatResponse{Success: false, Term: es.currentTerm}, err
+	}
 	log.Println("HeartBeat from Leader ")
 	if req.Term >= es.currentTerm {
 		es.currentTerm = req.Term
@@ -73,8 +81,38 @@ func (es *ElectionService) Heartbeat(ctx context.Context, req *pb.HeartbeatReque
 		es.resetElectionTimer(ctx)
 		return &pb.HeartbeatResponse{Success: true, Term: es.currentTerm}, nil
 	}
-
+	fmt.Println("Sending Success Response")
 	return &pb.HeartbeatResponse{Success: false, Term: es.currentTerm}, nil
+}
+
+func validateJWTFromContext(es *ElectionService, ctx context.Context) error {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return fmt.Errorf("missing metadata")
+	}
+
+	authHeader, ok := md["authorization"]
+	if !ok || len(authHeader) == 0 {
+		return fmt.Errorf("missing authorization header")
+	}
+
+	tokenStr := authHeader[0][len("Bearer "):]
+	claims := &validation.Claims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(es.client.ServiceRegistry.Secret), nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrSignatureInvalid) {
+			return fmt.Errorf("invalid token signature")
+		}
+		return fmt.Errorf("could not parse token: %v", err)
+	}
+	if !token.Valid {
+		return fmt.Errorf("invalid token")
+	}
+
+	fmt.Printf("Authenticated request from NodeID: %s\n", claims.FollowerId)
+	return nil
 }
 
 func (es *ElectionService) resetElectionTimer(Ctx context.Context) {
@@ -191,6 +229,7 @@ func sendHeartBeats(es *ElectionService) {
 		if node.GrpcPort == es.client.NodeDetails.GrpcPort {
 			continue
 		}
+		token := getEncodedToken(es)
 		url := node.NodeAddr + ":" + node.GrpcPort
 		log.Println("Sending heartbeat to ", url)
 		dial, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -200,6 +239,7 @@ func sendHeartBeats(es *ElectionService) {
 		}
 		client := pb.NewLeaderElectionClient(dial)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
 		defer cancel()
 		hb := pb.HeartbeatRequest{
 			Term:     es.currentTerm,
@@ -211,4 +251,11 @@ func sendHeartBeats(es *ElectionService) {
 		}
 		fmt.Println(heartbeat)
 	}
+}
+
+func getEncodedToken(es *ElectionService) string {
+	secret := es.client.ServiceRegistry.Secret
+	token := validation.GetToken(secret, strconv.FormatUint(es.client.ClusterID, 10), es.client.NodeDetails.GrpcPort)
+	fmt.Println("Token: ", token)
+	return token
 }

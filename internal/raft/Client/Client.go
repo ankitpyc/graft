@@ -14,7 +14,7 @@ import (
 )
 
 type ClientInf interface {
-	InitRaftClient(config *config.Config) *RaftClient
+	InitRaftClient(config *config.Config) *Client
 	JoinCluster(peer *ClusterPeer)
 	RunElectionLoop(ctx context.Context, ClusterMembers []*ClusterPeer) error
 	LeaveCluster(peer *ClusterPeer)
@@ -25,7 +25,7 @@ type ClientInf interface {
 	AppendEntries(peer *ClusterPeer) error
 }
 
-type RaftClient struct {
+type Client struct {
 	sync.Mutex
 	ClusterName     string
 	ClusterID       uint64
@@ -38,18 +38,19 @@ type RaftClient struct {
 	GrpcServer      *grpc.Server
 }
 
-func (client *RaftClient) JoinCluster(peer *ClusterPeer) {
+func (client *Client) JoinCluster(peer *ClusterPeer) {
 	fmt.Println("Node :- ", peer.NodeAddr+":"+peer.NodePort, " || grpc port ", peer.NodeAddr+":"+peer.GrpcPort)
 	client.Lock()
 	client.ClusterMembers = append(client.ClusterMembers, peer)
 	client.Unlock()
 }
-func (client *RaftClient) LeaveCluster(peer *ClusterPeer) {
+
+func (client *Client) LeaveCluster(peer *ClusterPeer) {
 	fmt.Println("Node :- ", peer.NodeAddr+":"+peer.NodePort, " || grpc port ", peer.NodeAddr+":"+peer.GrpcPort)
 	client.leaveCluster(peer)
 }
 
-func (client *RaftClient) leaveCluster(peer *ClusterPeer) {
+func (client *Client) leaveCluster(peer *ClusterPeer) {
 	for i, mem := range client.ClusterMembers {
 		if mem.NodePort == peer.NodePort {
 			client.Lock()
@@ -60,9 +61,9 @@ func (client *RaftClient) leaveCluster(peer *ClusterPeer) {
 	}
 }
 
-func InitRaftClient(config *config.Config) *RaftClient {
+func InitRaftClient(config *config.Config) *Client {
 	reg := ServiceRegistry{}
-	client := &RaftClient{
+	client := &Client{
 		ClusterName:    config.ClusterName,
 		ClusterID:      rand.Uint64(),
 		ClusterMembers: make([]*ClusterPeer, 0, 5),
@@ -80,7 +81,7 @@ func InitRaftClient(config *config.Config) *RaftClient {
 	return client
 }
 
-func (client *RaftClient) BuildStore() (store.StoreInf, error) {
+func (client *Client) BuildStore() (store.StoreInf, error) {
 	cache, err := factory.CreateCache("LFU", 4)
 	if err != nil {
 		return nil, err
@@ -88,7 +89,7 @@ func (client *RaftClient) BuildStore() (store.StoreInf, error) {
 	return cache, nil
 }
 
-func listenForChannelEvents(client *RaftClient) {
+func listenForChannelEvents(client *Client) {
 	for {
 		select {
 		case event := <-client.MemberChannel:
@@ -100,7 +101,7 @@ func listenForChannelEvents(client *RaftClient) {
 	}
 }
 
-func (client *RaftClient) StartElectionServer(wg *sync.WaitGroup, config *config.Config) {
+func (client *Client) StartElectionServer(wg *sync.WaitGroup, config *config.Config) {
 	defer wg.Done()
 	sy := &sync.WaitGroup{}
 	client.Election = NewElectionService(client)
@@ -113,7 +114,7 @@ func (client *RaftClient) StartElectionServer(wg *sync.WaitGroup, config *config
 	sy.Wait()
 }
 
-func startElectionServer(raft *RaftClient, wg *sync.WaitGroup) {
+func startElectionServer(raft *Client, wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Start the election loop
 	go func() {
@@ -124,7 +125,7 @@ func startElectionServer(raft *RaftClient, wg *sync.WaitGroup) {
 	}()
 }
 
-func (client *RaftClient) IsLeader() bool {
+func (client *Client) IsLeader() bool {
 	return client.NodeDetails.NodePort == client.Election.GetLeaderId()
 }
 

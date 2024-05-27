@@ -22,7 +22,7 @@ func main() {
 	//Loads Configuration
 	c, _ := config.LoadConfig(ConfigFilename)
 	if c.DebugMode {
-		c.Port = strconv.Itoa(rangeIn(2000, 8000))
+		c.Port = strconv.Itoa(rangeIn(5000, 6000))
 	}
 	// Initializes Raft Client
 	client := raft.InitRaftClient(c)

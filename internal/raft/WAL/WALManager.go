@@ -19,12 +19,12 @@ type Manager struct {
 	Log               []*pb.AppendEntriesRequest
 	LogStream         chan *pb.AppendEntriesRequest
 	LatestCommitIndex int32
-	client            *raft.RaftClient
+	client            *raft.Client
 	LogReplicator     *LogReplicationService
 	MaxLogSize        uint64
 }
 
-func NewWALManager(filename string, client *raft.RaftClient) *Manager {
+func NewWALManager(filename string, client *raft.Client) *Manager {
 	fd, _ := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, os.ModePerm)
 	walManager := &Manager{
 		Fd:                fd,

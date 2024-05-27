@@ -13,10 +13,12 @@ import (
 type ServiceRegistryInf interface {
 	InitServiceRegister(*config.Config)
 	DeregisterService(*config.Config)
+	FetchJWTToken() (string, error)
 }
 
 type ServiceRegistry struct {
-	client *RaftClient
+	client *Client
+	Secret string
 }
 
 type NODETYPE int
@@ -94,7 +96,7 @@ func (sr *ServiceRegistry) DeregisterService(config *config.Config) {
 
 func readResponse(service *ServiceRegistry, conn net.Conn) {
 	var buffer bytes.Buffer
-	var ClusterMember []*ClusterPeer = make([]*ClusterPeer, 0)
+	var resp *NodeRegisterationResponse = &NodeRegisterationResponse{}
 	for {
 		data := make([]byte, 1024)
 		n, err := conn.Read(data)
@@ -105,16 +107,17 @@ func readResponse(service *ServiceRegistry, conn net.Conn) {
 		if bytes.IndexByte(buffer.Bytes(), '\n') > -1 { // Check for newline delimiter (replace if needed)
 			break
 		}
-		err = json.Unmarshal(data[:n], &ClusterMember)
+		err = json.Unmarshal(data[:n], resp)
 		if err != nil {
 			log.Println("unmarshal fail", err)
 			return
 		}
-		fmt.Printf("Total Cluster Members %v\n", len(ClusterMember))
-		for _, peer := range ClusterMember {
+		service.Secret = resp.Secret
+		for _, peer := range resp.Members {
 			fmt.Println("grpc port ", peer.GrpcPort)
 		}
-		service.client.MemberChannel <- ClusterMember
+		fmt.Printf("Secret %s & Total Cluster Members %v\n", service.Secret, len(resp.Members))
+		service.client.MemberChannel <- resp.Members
 	}
 }
 

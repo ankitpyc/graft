@@ -22,12 +22,12 @@ import (
 type Server struct {
 	Listener   net.Listener
 	Address    string
-	Client     *raft.RaftClient
+	Client     *raft.Client
 	WAlManager *wal2.Manager
 	Port       string
 }
 
-func NewServerConfig(config config.Config, registry *raft.RaftClient) *Server {
+func NewServerConfig(config config.Config, registry *raft.Client) *Server {
 	wlManager := wal2.NewWALManager(config.WALFilePath, registry)
 	server := &Server{
 		Port:       config.Port,
@@ -125,7 +125,6 @@ func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request, walLog []*
 }
 
 func (s *Server) HealthStatus(w http.ResponseWriter, r *http.Request) {
-	time.Sleep(7 * time.Second)
 	fmt.Println("Health Check at :", time.Now())
 	w.Write([]byte("SUCCESS"))
 }
