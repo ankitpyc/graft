@@ -154,12 +154,12 @@ func (es *ElectionService) RunElectionLoop() error {
 				continue
 			}
 			log.Println("Leader Ping TimedOut , Election will happen at :", es.client.NodeDetails.NodePort)
-			es.client.RMu.Lock()
+			es.client.Lock()
 			if !es.client.IsLeader() || !es.electionInProgress {
 				log.Println("Starting election")
 				es.startElection()
 			}
-			es.client.RMu.Unlock()
+			es.client.Unlock()
 		}
 
 	}

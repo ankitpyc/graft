@@ -15,3 +15,5 @@ G
 factory/CacheFactory.go,5/c/5ca71a61a68bc7933577329b69db86ebbb1e349c
 N
 internal/raft/Client/Client.go,6/b/6b1af791f031fa94cde8cf90407ca8212158582c
+W
+'internal/raft/Client/ElectionService.go,4/8/48b50f1859d0b5b76a13f7e02a3f635ff62f91d5
