@@ -10,7 +10,7 @@ import (
 
 type LogReplicationService struct {
 	pb.UnimplementedRaftLogReplicationServer
-	WALManager *WALManager
+	WALManager *Manager
 }
 
 func NewLogReplicationService() *LogReplicationService {

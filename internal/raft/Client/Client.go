@@ -11,16 +11,14 @@ import (
 	"math/rand"
 	"strconv"
 	"sync"
-	"time"
 )
 
-type RaftClientInf interface {
+type ClientInf interface {
 	InitRaftClient(config *config.Config) *RaftClient
 	JoinCluster(peer *ClusterPeer)
 	RunElectionLoop(ctx context.Context, ClusterMembers []*ClusterPeer) error
 	LeaveCluster(peer *ClusterPeer)
 	GetLeader(peer *ClusterPeer)
-	ListenForLeader() bool
 	StartGRPCServer()
 	Apply()
 	IsLeader() bool
@@ -28,6 +26,7 @@ type RaftClientInf interface {
 }
 
 type RaftClient struct {
+	sync.Mutex
 	ClusterName     string
 	ClusterID       uint64
 	ClusterMembers  []*ClusterPeer
@@ -37,25 +36,24 @@ type RaftClient struct {
 	Election        *ElectionService
 	Store           store.StoreInf
 	GrpcServer      *grpc.Server
-	RMu             sync.RWMutex
 }
 
 func (client *RaftClient) JoinCluster(peer *ClusterPeer) {
 	fmt.Println("Node :- ", peer.NodeAddr+":"+peer.NodePort, " || grpc port ", peer.NodeAddr+":"+peer.GrpcPort)
-	client.RMu.Lock()
+	client.Lock()
 	client.ClusterMembers = append(client.ClusterMembers, peer)
-	client.RMu.Unlock()
+	client.Unlock()
 }
 func (client *RaftClient) LeaveCluster(peer *ClusterPeer) {
 	fmt.Println("Node :- ", peer.NodeAddr+":"+peer.NodePort, " || grpc port ", peer.NodeAddr+":"+peer.GrpcPort)
-	client.RMu.Lock()
 	client.leaveCluster(peer)
-	client.RMu.Unlock()
 }
 
 func (client *RaftClient) leaveCluster(peer *ClusterPeer) {
 	for i, mem := range client.ClusterMembers {
 		if mem.NodePort == peer.NodePort {
+			client.Lock()
+			defer client.Unlock()
 			// Remove the member from the slice
 			client.ClusterMembers = append(client.ClusterMembers, client.ClusterMembers[i+1:]...)
 		}
@@ -69,7 +67,6 @@ func InitRaftClient(config *config.Config) *RaftClient {
 		ClusterID:      rand.Uint64(),
 		ClusterMembers: make([]*ClusterPeer, 0, 5),
 		NodeDetails:    NewClusterPeer("0", config.Host, config.Port),
-		RMu:            sync.RWMutex{},
 		MemberChannel:  make(chan []*ClusterPeer),
 	}
 	client.Store, _ = client.BuildStore()
@@ -78,7 +75,7 @@ func InitRaftClient(config *config.Config) *RaftClient {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go listenForChannelEvents(client)
-	client.StartElectionServer(wg)
+	client.StartElectionServer(wg, config)
 	wg.Wait()
 	return client
 }
@@ -103,24 +100,15 @@ func listenForChannelEvents(client *RaftClient) {
 	}
 }
 
-func (client *RaftClient) ListenForLeader() bool {
-	timer := time.NewTimer(time.Second * 5)
-	for {
-		select {
-		case <-timer.C:
-			if !client.NodeDetails.HasReceivedLeaderPing {
-			}
-		}
-	}
-}
-
-func (client *RaftClient) StartElectionServer(wg *sync.WaitGroup) {
+func (client *RaftClient) StartElectionServer(wg *sync.WaitGroup, config *config.Config) {
 	defer wg.Done()
 	sy := &sync.WaitGroup{}
 	client.Election = NewElectionService(client)
 	sy.Add(1)
-	port := strconv.Itoa(rangeIn(8100, 10000))
-	client.NodeDetails.GrpcPort = port
+	if config.DebugMode {
+		config.GRPCPort = strconv.Itoa(rangeIn(8100, 10000))
+	}
+	client.NodeDetails.GrpcPort = config.GRPCPort
 	startElectionServer(client, sy)
 	sy.Wait()
 }
@@ -136,15 +124,7 @@ func startElectionServer(raft *RaftClient, wg *sync.WaitGroup) {
 	}()
 }
 
-func (client *RaftClient) Apply() {
-
-}
-
 func (client *RaftClient) IsLeader() bool {
-	return client.NodeDetails.NodePort == client.Election.GetLeaderId()
-}
-
-func (client *RaftClient) AppendEntries() bool {
 	return client.NodeDetails.NodePort == client.Election.GetLeaderId()
 }
 

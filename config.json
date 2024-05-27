@@ -1,8 +1,10 @@
 {
   "wal_log_file": "wal_file.log",
   "port" : "9091",
+  "grpc_port" : "2311",
   "host" : "127.0.0.1",
   "cluster_name" : "d-kv-2134",
   "cluster_Id" : "3342",
-  "service_discovery_addr" : "127.0.0.1:2212"
+  "service_discovery_addr" : "127.0.0.1:2212",
+  "debug_mode" : true
 }

@@ -7,7 +7,7 @@ import (
 	"log"
 )
 
-func decodeWALEntry(walManager *WALManager) (*WALLogEntry, error) {
+func decodeWALEntry(walManager *Manager) (*WALLogEntry, error) {
 	buf := make([]byte, 1)
 	bytesRead := []byte{}
 	walManager.Fd.Seek(0, 0)

@@ -23,7 +23,7 @@ type Server struct {
 	Listener   net.Listener
 	Address    string
 	Client     *raft.RaftClient
-	WAlManager *wal2.WALManager
+	WAlManager *wal2.Manager
 	Port       string
 }
 
@@ -125,6 +125,7 @@ func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request, walLog []*
 }
 
 func (s *Server) HealthStatus(w http.ResponseWriter, r *http.Request) {
+	time.Sleep(7 * time.Second)
 	fmt.Println("Health Check at :", time.Now())
 	w.Write([]byte("SUCCESS"))
 }
@@ -159,7 +160,7 @@ func (s *Server) StartGRPCServer() {
 	// Create a new gRPC server instance
 	gserv := grpc.NewServer()
 	s.Client.GrpcServer = gserv
-	// Register the ElectionService with the gRPC server
+	// Register the ElectionService and LogReplication Services with the gRPC server
 	pb.RegisterLeaderElectionServer(gserv, s.Client.Election)
 	pb.RegisterRaftLogReplicationServer(gserv, s.WAlManager.LogReplicator)
 	go func() {

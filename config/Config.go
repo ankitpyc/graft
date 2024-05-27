@@ -8,14 +8,16 @@ import (
 type Config struct {
 	WALFilePath          string `json:"wal_log_file"`
 	Port                 string `json:"port"`
+	GRPCPort             string `json:"grpc_port"`
 	Host                 string `json:"host"`
 	ClusterName          string `json:"cluster_name"`
 	ClusterUUID          string `json:"cluster_id"`
 	ServiceDiscoveryAddr string `json:"service_discovery_addr"`
+	DebugMode            bool   `json:"debug_mode"`
 }
 
-func (conf *Config) LoadConfig(configFile string) (*Config, error) {
-	var config Config
+func LoadConfig(configFile string) (*Config, error) {
+	var config *Config = &Config{}
 	file, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, err
@@ -24,9 +26,5 @@ func (conf *Config) LoadConfig(configFile string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &config, nil
-}
-
-func NewConfig() *Config {
-	return &Config{}
+	return config, nil
 }

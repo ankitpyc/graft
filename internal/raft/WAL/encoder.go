@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func encodeWALEntry(walManager *WALManager, entry *pb.LogEntry) (*pb.LogEntry, error) {
+func encodeWALEntry(walManager *Manager, entry *pb.LogEntry) (*pb.LogEntry, error) {
 	// Initialize buffer with the maximum size
 	msg := bytes.NewBuffer(nil) // Encode timestamp
 	// Create a buffered writer
@@ -53,6 +53,6 @@ func encodeWALEntry(walManager *WALManager, entry *pb.LogEntry) (*pb.LogEntry, e
 	return entry, nil
 }
 
-func (walManager *WALManager) IncrementLatestCommitedIndex() uint64 {
+func (walManager *Manager) IncrementLatestCommitedIndex() uint64 {
 	return uint64(atomic.AddInt32(&walManager.LatestCommitIndex, 1))
 }
