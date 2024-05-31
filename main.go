@@ -25,7 +25,7 @@ func main() {
 		c.Port = strconv.Itoa(rangeIn(5000, 6000))
 	}
 	// Initializes Raft Client
-	client := raft.InitRaftClient(c)
+	client := raft.InitRaftClient(c, raft.WithServiceReg(), raft.WithDataStore())
 	servHandler := server.NewServerConfig(*c, client)
 	servHandler.Client = client
 	client.ServiceRegistry.RegisterRaftClient(c)

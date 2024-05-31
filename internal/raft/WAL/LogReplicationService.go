@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"golang.org/x/net/context"
 	"log"
-	"time"
 )
 
 type LogReplicationService struct {
@@ -18,16 +17,23 @@ func NewLogReplicationService() *LogReplicationService {
 }
 
 func (lr *LogReplicationService) AppendEntries(ctx context.Context, req *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
-	fmt.Println("Received AppendEntriesRequest")
-	lr.ReplicateLogEntry(req)
-	time.Sleep(5 * time.Second)
+	success := true
+	err := lr.ReplicateLogEntry(req)
+	if err != nil {
+		success = false
+		fmt.Printf("ReplicateLogEntry err: %v\n", err)
+	}
 	return &pb.AppendEntriesResponse{
-		Success: false,
-		Term:    0,
+		Success: success,
+		Term:    req.Term,
 	}, nil
 }
 
-func (lr *LogReplicationService) ReplicateLogEntry(request *pb.AppendEntriesRequest) {
-	lr.WALManager.LogStream <- request
+func (lr *LogReplicationService) ReplicateLogEntry(request *pb.AppendEntriesRequest) error {
+	_, err := lr.WALManager.AppendLog(request)
+	if err != nil {
+		return fmt.Errorf("error while replicating log entry: %v", err)
+	}
 	log.Println("Log Stream Ended Entry Replicated")
+	return nil
 }

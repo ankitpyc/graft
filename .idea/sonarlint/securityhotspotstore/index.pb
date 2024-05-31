@@ -35,3 +35,19 @@ a
 1internal/raft/Client/NodeRegisterationResponse.go,f/b/fb62eeaa6e46d04c65170a7e5825e145907a500c
 U
 %internal/election/election_grpc.pb.go,7/8/785990c7761e16928379050bf997f1d2c09cc3ce
+O
+internal/raft/Client/Options.go,3/4/342d61b0de2f0177de88e0aaa629c56eb5a659b9
+L
+internal/raft/WAL/decoder.go,8/7/87c82e179ea8b332f33d74e2009561f829aa5ff3
+L
+internal/raft/WAL/encoder.go,e/2/e23650476fa6a67e4e55ddb0b91ea4f1f95a9261
+N
+internal/raft/WAL/FileConst.go,f/e/fe724a590759ec31b46d0c58a22b93141ae1bb9a
+Z
+*internal/raft/WAL/LogReplicationService.go,0/8/089a9c9d8ce191ce58d3fde1cbd53d75ef1d19ff
+K
+internal/store/datastore.go,0/4/04138d59628b1b6f89fb0eb634ff430a50dbeba6
+K
+internal/raft/WAL/WALLog.go,4/d/4da85f4dd7481c399753874ef282de21dfe82b46
+Y
+)internal/store/cache/LFUCache/LFUCache.go,c/2/c23d59f3b93b00a663becb6fe9790d2d88f08b42

@@ -28,7 +28,7 @@ type ClientInf interface {
 type Client struct {
 	sync.Mutex
 	ClusterName     string
-	ClusterID       uint64
+	ClusterID       string
 	ClusterMembers  []*ClusterPeer
 	NodeDetails     *ClusterPeer
 	ServiceRegistry *ServiceRegistry
@@ -61,30 +61,26 @@ func (client *Client) leaveCluster(peer *ClusterPeer) {
 	}
 }
 
-func InitRaftClient(config *config.Config) *Client {
-	reg := ServiceRegistry{}
+func InitRaftClient(config *config.Config, option ...Option) *Client {
 	client := &Client{
 		ClusterName:    config.ClusterName,
-		ClusterID:      rand.Uint64(),
+		ClusterID:      config.ClusterUUID,
 		ClusterMembers: make([]*ClusterPeer, 0, 5),
 		NodeDetails:    NewClusterPeer("0", config.Host, config.Port),
 		MemberChannel:  make(chan []*ClusterPeer),
 	}
-	client.Store, _ = client.BuildStore()
-	client.ServiceRegistry = &reg
-	client.ServiceRegistry.client = client
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	for _, opt := range option {
+		opt(client)
+	}
 	go listenForChannelEvents(client)
-	client.StartElectionServer(wg, config)
-	wg.Wait()
+	client.StartElectionServer(config)
 	return client
 }
 
 func (client *Client) BuildStore() (store.StoreInf, error) {
 	cache, err := factory.CreateCache("LFU", 4)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create store err: %v", err)
 	}
 	return cache, nil
 }
@@ -101,22 +97,21 @@ func listenForChannelEvents(client *Client) {
 	}
 }
 
-func (client *Client) StartElectionServer(wg *sync.WaitGroup, config *config.Config) {
-	defer wg.Done()
-	sy := &sync.WaitGroup{}
+func (client *Client) StartElectionServer(config *config.Config) {
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	client.Election = NewElectionService(client)
-	sy.Add(1)
 	if config.DebugMode {
 		config.GRPCPort = strconv.Itoa(rangeIn(8100, 10000))
 	}
 	client.NodeDetails.GrpcPort = config.GRPCPort
-	startElectionServer(client, sy)
-	sy.Wait()
+	startElectionServer(client, wg)
+	wg.Wait()
 }
 
 func startElectionServer(raft *Client, wg *sync.WaitGroup) {
-	defer wg.Done()
 	// Start the election loop
+	defer wg.Done()
 	go func() {
 		err := raft.Election.RunElectionLoop()
 		if err != nil {

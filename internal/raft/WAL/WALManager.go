@@ -10,8 +10,13 @@ import (
 	"log"
 	"os"
 	"sync"
-	"time"
 )
+
+type ManagerInf interface {
+	LogListener()
+	AppendLog(entry *pb.AppendEntriesRequest) (bool, error)
+	UpdateReplicaDataStore(entry *pb.AppendEntriesRequest) (bool error)
+}
 
 type Manager struct {
 	sync.RWMutex
@@ -36,37 +41,45 @@ func NewWALManager(filename string, client *raft.Client) *Manager {
 		MaxLogSize:        100,
 	}
 	walManager.LogReplicator.WALManager = walManager
-	go walManager.LogListener()
 	return walManager
 }
 
-func (walManager *Manager) LogListener() {
-	for {
-		select {
-		case lo :=
-			<-walManager.LogStream:
-			walManager.AppendLog(lo)
-		}
-	}
-}
-
-func (walManager *Manager) AppendLog(entry *pb.AppendEntriesRequest) bool {
+func (walManager *Manager) AppendLog(entry *pb.AppendEntriesRequest) (bool, error) {
 	walManager.Lock()
 	defer walManager.Unlock()
 	for _, en := range entry.Entries {
 		commitedEntry, err := encodeWALEntry(walManager, en)
-		walManager.LatestCommitIndex = commitedEntry.Term
-		walManager.Log = append(walManager.Log, entry)
-		for _, log := range entry.Entries {
-			fmt.Println("Adding key ", log.Key)
+		if err != nil || commitedEntry == nil {
+			return false, fmt.Errorf("encode log entry failed: %v", err)
 		}
-		log.Println("Key Entry replicated", entry.Entries[0].Key)
-		if err != nil {
-			fmt.Println("Error commiting entry")
+		walManager.LatestCommitIndex = commitedEntry.Term
+		if !walManager.client.IsLeader() {
+			err := walManager.UpdateReplicaDataStore(entry)
+			if err != nil {
+				return false, fmt.Errorf("updating replica failed: %v", err)
+			}
+			fmt.Printf("Entry replicated at follower node %v \n ", walManager.client.NodeDetails.GrpcPort)
+		}
+		walManager.Log = append(walManager.Log, entry)
+	}
+	return true, nil
+}
+
+func (walManager *Manager) UpdateReplicaDataStore(entry *pb.AppendEntriesRequest) error {
+
+	store := walManager.client.Store
+	for _, en := range entry.Entries {
+		switch en.Operation {
+		case 0:
+			store.Set(en.Key, en.Value)
+			break
+		case 1:
+			store.Delete(en.Key)
+		default:
+			return fmt.Errorf("invalid operation in the store %d", en.Operation)
 		}
 	}
-	time.Sleep(10 * time.Second)
-	return true
+	return nil
 }
 
 func (walManager *Manager) ReplicateEntries(request *pb.AppendEntriesRequest, wg *sync.WaitGroup) {

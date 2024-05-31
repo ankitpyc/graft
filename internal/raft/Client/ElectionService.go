@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"log"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -34,7 +33,6 @@ type ElectionService struct {
 }
 
 func NewElectionService(client *Client) *ElectionService {
-
 	duration := time.Duration(rangeIn(5, 10)) * time.Second
 	return &ElectionService{
 		currentTerm:        1,
@@ -215,7 +213,7 @@ func sendHeartBeats(es *ElectionService) {
 
 func getEncodedToken(es *ElectionService) string {
 	secret := es.client.ServiceRegistry.Secret
-	token := validation.GetToken(secret, strconv.FormatUint(es.client.ClusterID, 10), es.client.NodeDetails.GrpcPort)
+	token := validation.GetToken(secret, es.client.ClusterID, es.client.ClusterID)
 	fmt.Println("Token: ", token)
 	return token
 }

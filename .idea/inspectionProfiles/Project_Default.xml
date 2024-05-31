@@ -4,6 +4,7 @@
     <inspection_tool class="GoDfaErrorMayBeNotNil" enabled="true" level="WARNING" enabled_by_default="true">
       <functions>
         <function importPath="cache/raft/WAL" name="encodeWALEntry" />
+        <function importPath="cache/internal/raft/WAL" name="encodeWALEntry" />
       </functions>
     </inspection_tool>
   </profile>

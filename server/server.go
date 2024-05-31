@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -80,7 +79,9 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		io.WriteString(w, string(b))
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+		return
 	case http.MethodPost:
 		// Read the value from the POST body.
 		_, done := s.handleSetKey(w, r, walLog)
@@ -105,7 +106,8 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request, walLog []*pb.LogEntry) ([]*pb.LogEntry, bool) {
 	m := map[string]string{}
 	logentry := &pb.AppendEntriesRequest{LeaderId: s.Client.Election.GetLeaderId()}
-	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&m)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return nil, true
 	}
@@ -120,7 +122,10 @@ func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request, walLog []*
 	for _, entry := range walLog {
 		s.Client.Store.Set(entry.Key, entry.Value)
 	}
-	s.WAlManager.LogStream <- logentry
+	appendLog, err := s.WAlManager.AppendLog(logentry)
+	if err != nil || appendLog == false {
+		return nil, false
+	}
 	return walLog, false
 }
 
