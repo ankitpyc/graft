@@ -80,7 +80,10 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(b)
+		_, err = w.Write(b)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 		return
 	case http.MethodPost:
 		// Read the value from the POST body.
