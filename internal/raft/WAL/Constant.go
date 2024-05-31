@@ -2,7 +2,10 @@ package wal
 
 const (
 	CommandBsize   = 3
-	TimestampBsize = 8
+	TimestampBSize = 8
+	LogIndexBSize
+	KlenBSize      = 1
+	OperationBSize = 1
 	MaxWlogSize    = 4096
 )
 
