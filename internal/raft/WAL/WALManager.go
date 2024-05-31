@@ -54,6 +54,7 @@ func (walManager *Manager) AppendLog(entry *pb.AppendEntriesRequest) (bool, erro
 		}
 		walManager.LatestCommitIndex = commitedEntry.Term
 		if !walManager.client.IsLeader() {
+			fmt.Printf("The node is a Replica %v \n", walManager.client.NodeDetails.NodePort)
 			err := walManager.UpdateReplicaDataStore(entry)
 			if err != nil {
 				return false, fmt.Errorf("updating replica failed: %v", err)

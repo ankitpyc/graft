@@ -51,3 +51,7 @@ K
 internal/raft/WAL/WALLog.go,4/d/4da85f4dd7481c399753874ef282de21dfe82b46
 Y
 )internal/store/cache/LFUCache/LFUCache.go,c/2/c23d59f3b93b00a663becb6fe9790d2d88f08b42
+[
++internal/election/LogReplication_grpc.pb.go,4/b/4bffe31de5c009b5662ff47c1249972406486775
+L
+internal/store/cache/List.go,c/c/cc439dfc85e627a636bdb80b1dae64dcf5a29dad

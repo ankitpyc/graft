@@ -21,12 +21,13 @@ func (lr *LogReplicationService) AppendEntries(ctx context.Context, req *pb.Appe
 	err := lr.ReplicateLogEntry(req)
 	if err != nil {
 		success = false
-		fmt.Printf("ReplicateLogEntry err: %v\n", err)
+		err = fmt.Errorf("Error Appending Entry for the node %v \n", req.PrevLogIndex+1)
+		fmt.Println(err.Error())
 	}
 	return &pb.AppendEntriesResponse{
 		Success: success,
 		Term:    req.Term,
-	}, nil
+	}, err
 }
 
 func (lr *LogReplicationService) ReplicateLogEntry(request *pb.AppendEntriesRequest) error {
@@ -35,5 +36,5 @@ func (lr *LogReplicationService) ReplicateLogEntry(request *pb.AppendEntriesRequ
 		return fmt.Errorf("error while replicating log entry: %v", err)
 	}
 	log.Println("Log Stream Ended Entry Replicated")
-	return nil
+	return err
 }

@@ -18,6 +18,7 @@ import (
 	"time"
 )
 
+// Server struct holds the server configuration and components
 type Server struct {
 	Listener   net.Listener
 	Address    string
@@ -26,6 +27,7 @@ type Server struct {
 	Port       string
 }
 
+// NewServerConfig initializes a new Server instance with provided configuration and raft client
 func NewServerConfig(config config.Config, registry *raft.Client) *Server {
 	wlManager := wal2.NewWALManager(config.WALFilePath, registry)
 	server := &Server{
@@ -37,6 +39,7 @@ func NewServerConfig(config config.Config, registry *raft.Client) *Server {
 	return server
 }
 
+// ServeHTTP handles incoming HTTP requests and routes them based on the URL path
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/key") {
 		s.handleKeyRequest(w, r)
@@ -51,6 +54,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleKeyRequest processes key-related HTTP requests (GET, POST, DELETE)
 func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 	getKey := func() string {
 		parts := strings.Split(r.URL.Path, "/")
@@ -68,7 +72,6 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		v, _ := s.Client.Store.Get(k)
-		fmt.Println("Received value from store: ", v)
 		if v == nil {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("key not found"))
@@ -86,26 +89,25 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	case http.MethodPost:
-		// Read the value from the POST body.
+		// Handle POST request to set a key-value pair
 		_, done := s.handleSetKey(w, r, walLog)
 		if done {
 			return
 		}
-
-	case "DELETE":
+	case http.MethodDelete:
 		k := getKey()
 		if k == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		s.Client.Store.Delete(k)
-
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 	return
 }
 
+// handleSetKey handles setting a key in the store, logging the operation, and ensuring replication
 func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request, walLog []*pb.LogEntry) ([]*pb.LogEntry, bool) {
 	m := map[string]string{}
 	logentry := &pb.AppendEntriesRequest{LeaderId: s.Client.Election.GetLeaderId()}
@@ -132,11 +134,13 @@ func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request, walLog []*
 	return walLog, false
 }
 
+// HealthStatus handles the health check endpoint
 func (s *Server) HealthStatus(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Health Check at :", time.Now())
 	w.Write([]byte("SUCCESS"))
 }
 
+// HandlePeerCon handles the request to join a new peer to the cluster
 func (s *Server) HandlePeerCon(r *http.Request, w http.ResponseWriter) {
 	var peer *raft.ClusterPeer = &raft.ClusterPeer{}
 	if err := json.NewDecoder(r.Body).Decode(&peer); err != nil {
@@ -146,6 +150,8 @@ func (s *Server) HandlePeerCon(r *http.Request, w http.ResponseWriter) {
 	fmt.Println("New Peer Added ", peer.NodeAddr+":"+peer.NodePort)
 	s.Client.JoinCluster(peer)
 }
+
+// HandleLeaveCon handles the request to remove a peer from the cluster
 func (s *Server) HandleLeaveCon(r *http.Request, w http.ResponseWriter) {
 	var peer *raft.ClusterPeer = &raft.ClusterPeer{}
 	if err := json.NewDecoder(r.Body).Decode(&peer); err != nil {
@@ -156,6 +162,7 @@ func (s *Server) HandleLeaveCon(r *http.Request, w http.ResponseWriter) {
 	s.Client.LeaveCluster(peer)
 }
 
+// StartGRPCServer starts the gRPC server for handling RPC calls
 func (s *Server) StartGRPCServer() {
 	port := s.Client.NodeDetails.GrpcPort
 	lis, err := net.Listen("tcp", ":"+port)
