@@ -59,3 +59,7 @@ M
 internal/raft/WAL/Constant.go,c/b/cbd058b39981cd41c2698169345271cb40c0ec6e
 L
 internal/raft/WAL/Options.go,b/a/ba417ac0fa7364e3651c990afd7f13802d4ccdfe
+A
+server/handler.go,5/c/5cdd020b6ec08e535d75a8c0dbe205fb79781c2b
+K
+internal/raft/WAL/Snappy.go,b/1/b152d115f0c9e0b6ad283b7cf31d93380fd47f15

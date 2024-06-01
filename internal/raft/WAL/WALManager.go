@@ -26,6 +26,7 @@ type Manager struct {
 	LatestCommitIndex int32
 	client            *raft.Client
 	LogReplicator     *LogReplicationService
+	Snappy            *Snappy
 	MaxLogSize        uint64
 }
 
@@ -56,12 +57,12 @@ func (walManager *Manager) AppendLog(entry *pb.AppendEntriesRequest) (bool, erro
 		}
 		walManager.LatestCommitIndex = commitedEntry.Term
 		if !walManager.client.IsLeader() {
-			fmt.Printf("The node is a Replica %v \n", walManager.client.NodeDetails.NodePort)
+			log.Printf("The node is a Replica %v \n", walManager.client.NodeDetails.NodePort)
 			er := walManager.UpdateReplicaDataStore(entry)
 			if er != nil {
 				return false, fmt.Errorf("updating replica failed: %v", err)
 			}
-			fmt.Printf("Entry replicated at follower node %v \n ", walManager.client.NodeDetails.GrpcPort)
+			log.Printf("Entry replicated at follower node %v \n ", walManager.client.NodeDetails.GrpcPort)
 		}
 		walManager.Log = append(walManager.Log, entry)
 	}
