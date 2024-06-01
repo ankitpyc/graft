@@ -29,7 +29,7 @@ type Manager struct {
 	MaxLogSize        uint64
 }
 
-func NewWALManager(filename string, client *raft.Client) *Manager {
+func NewWALManager(filename string, client *raft.Client, option ...Options) *Manager {
 	fd, _ := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, os.ModePerm)
 	walManager := &Manager{
 		Fd:                fd,
@@ -40,7 +40,9 @@ func NewWALManager(filename string, client *raft.Client) *Manager {
 		client:            client,
 		MaxLogSize:        100,
 	}
-	walManager.LogReplicator.WALManager = walManager
+	for _, opt := range option {
+		opt(walManager)
+	}
 	return walManager
 }
 
@@ -55,8 +57,8 @@ func (walManager *Manager) AppendLog(entry *pb.AppendEntriesRequest) (bool, erro
 		walManager.LatestCommitIndex = commitedEntry.Term
 		if !walManager.client.IsLeader() {
 			fmt.Printf("The node is a Replica %v \n", walManager.client.NodeDetails.NodePort)
-			err := walManager.UpdateReplicaDataStore(entry)
-			if err != nil {
+			er := walManager.UpdateReplicaDataStore(entry)
+			if er != nil {
 				return false, fmt.Errorf("updating replica failed: %v", err)
 			}
 			fmt.Printf("Entry replicated at follower node %v \n ", walManager.client.NodeDetails.GrpcPort)
@@ -67,7 +69,6 @@ func (walManager *Manager) AppendLog(entry *pb.AppendEntriesRequest) (bool, erro
 }
 
 func (walManager *Manager) UpdateReplicaDataStore(entry *pb.AppendEntriesRequest) error {
-
 	store := walManager.client.Store
 	for _, en := range entry.Entries {
 		switch en.Operation {
@@ -83,11 +84,13 @@ func (walManager *Manager) UpdateReplicaDataStore(entry *pb.AppendEntriesRequest
 	return nil
 }
 
-func (walManager *Manager) ReplicateEntries(request *pb.AppendEntriesRequest, wg *sync.WaitGroup) {
+func (walManager *Manager) ReplicateEntries(request *pb.AppendEntriesRequest, wg *sync.WaitGroup) error {
 	walManager.Lock()
 	defer wg.Done()
 	defer walManager.Unlock()
 	log.Print("Replicating entry", request)
+	maxQuorum := len(walManager.client.ClusterMembers)
+	replicatedNodes := 0
 	for _, member := range walManager.client.ClusterMembers {
 		if member.GrpcPort == walManager.client.NodeDetails.GrpcPort {
 			continue
@@ -97,9 +100,16 @@ func (walManager *Manager) ReplicateEntries(request *pb.AppendEntriesRequest, wg
 			fmt.Println(err)
 		}
 		client := pb.NewRaftLogReplicationClient(dial)
-		_, err = client.AppendEntries(context.Context(context.Background()), request)
-		if err != nil {
-			fmt.Println("error appending entries", err)
+		entries, err := client.AppendEntries(context.Context(context.Background()), request)
+		if err != nil || entries == nil || !entries.Success {
+			continue
+		}
+		if entries.Success {
+			replicatedNodes += 1
 		}
 	}
+	if (maxQuorum / 2) > replicatedNodes {
+		return fmt.Errorf("replication has failed ! Quorum between nodes cant be acheived")
+	}
+	return nil
 }

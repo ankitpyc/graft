@@ -29,7 +29,7 @@ type Server struct {
 
 // NewServerConfig initializes a new Server instance with provided configuration and raft client
 func NewServerConfig(config config.Config, registry *raft.Client) *Server {
-	wlManager := wal2.NewWALManager(config.WALFilePath, registry)
+	wlManager := wal2.NewWALManager(config.WALFilePath, registry, wal2.WithLogReplication())
 	server := &Server{
 		Port:       config.Port,
 		Address:    config.Host,
@@ -70,9 +70,10 @@ func (s *Server) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		k := getKey()
 		if k == "" {
 			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 		v, _ := s.Client.Store.Get(k)
-		if v == nil {
+		if v == nil || v == "" {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("key not found"))
 			return
@@ -122,13 +123,19 @@ func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request, walLog []*
 	logentry.Entries = walLog
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	s.WAlManager.ReplicateEntries(logentry, wg)
+	err = s.WAlManager.ReplicateEntries(logentry, wg)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return nil, false
+	}
 	wg.Wait()
+	// Since the entry has been successfully replicated, put it into leader store
 	for _, entry := range walLog {
 		s.Client.Store.Set(entry.Key, entry.Value)
 	}
 	appendLog, err := s.WAlManager.AppendLog(logentry)
-	if err != nil || appendLog == false {
+	if err != nil || !appendLog {
 		return nil, false
 	}
 	return walLog, false
@@ -166,7 +173,6 @@ func (s *Server) HandleLeaveCon(r *http.Request, w http.ResponseWriter) {
 func (s *Server) StartGRPCServer() {
 	port := s.Client.NodeDetails.GrpcPort
 	lis, err := net.Listen("tcp", ":"+port)
-
 	if err != nil {
 		log.Fatalf("Failed to listen on port %d: %v", port, err)
 	}
